@@ -15,6 +15,7 @@ class RemoteConfigService {
     'ad_interstitial_frequency': 3,
     'ad_native_enabled': true,
     'ad_rewarded_enabled': true,
+    'ad_rewarded_frequency': 5,
     'admob_app_open_id': '',
     'admob_interstitial_id': '',
     'admob_native_id': '',
@@ -24,6 +25,8 @@ class RemoteConfigService {
     'unity_rewarded_id': 'Rewarded_iOS',
     'categories_enabled': true,
     'categories_json': '[]',
+    'ad_interstitial_wait_seconds': 5,
+    'ad_rewarded_wait_seconds': 3,
   };
 
   Future<void> initialize() async {
@@ -37,13 +40,21 @@ class RemoteConfigService {
     await _rc.fetchAndActivate();
   }
 
+  // Anlık güncelleme için
+  Future<void> refresh() async {
+    await _rc.fetchAndActivate();
+  }
+
   String get m3uUrl => _rc.getString('m3u_url');
   String get adProvider => _rc.getString('ad_provider');
   bool get appOpenAdEnabled => _rc.getBool('ad_app_open_enabled');
   bool get interstitialEnabled => _rc.getBool('ad_interstitial_enabled');
   int get interstitialFrequency => _rc.getInt('ad_interstitial_frequency');
+  int get interstitialWaitSeconds => _rc.getInt('ad_interstitial_wait_seconds');
   bool get nativeAdEnabled => _rc.getBool('ad_native_enabled');
   bool get rewardedAdEnabled => _rc.getBool('ad_rewarded_enabled');
+  int get rewardedFrequency => _rc.getInt('ad_rewarded_frequency');
+  int get rewardedWaitSeconds => _rc.getInt('ad_rewarded_wait_seconds');
   bool get categoriesEnabled => _rc.getBool('categories_enabled');
   String get categoriesJson => _rc.getString('categories_json');
   String get admobAppOpenId => _rc.getString('admob_app_open_id');
