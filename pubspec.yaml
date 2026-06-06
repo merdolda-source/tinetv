@@ -42,7 +42,7 @@ dependencies:
   dio: ^5.9.2
   hive_flutter: ^1.1.0
   cached_network_image: ^3.4.1
-  connectivity_plus: ^7.1.1
+  connectivity_plus: 6.1.1
   better_player_plus: ^1.0.8
   unity_ads_plugin: ^0.3.30
 
