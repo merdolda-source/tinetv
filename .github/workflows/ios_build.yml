@@ -24,7 +24,7 @@ jobs:
           CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
           CERTIFICATES_P12_PASSWORD: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
         run: |
-          echo $CERTIFICATES_P12 | base64 --decode > distribution.p12
+          echo "$CERTIFICATES_P12" > distribution_b64.txt`n          base64 --decode distribution_b64.txt > distribution.p12
           security create-keychain -p "" build.keychain
           security import distribution.p12 -k build.keychain -P $CERTIFICATES_P12_PASSWORD -T /usr/bin/codesign
           security list-keychains -s build.keychain
