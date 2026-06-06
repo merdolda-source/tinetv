@@ -1,0 +1,40 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Flutter kurulum
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.1'
+
+      - name: Bağımlılıklar
+        run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Build iOS (codesign olmadan)
+        run: flutter build ios --release --no-codesign
+
+      - name: IPA oluştur
+        run: |
+          mkdir -p build/ios/ipa
+          cd build/ios/Release-iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../ipa/TineTV.ipa Payload/
+
+      - name: IPA yükle (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TineTV-iOS
+          path: build/ios/ipa/TineTV.ipa
