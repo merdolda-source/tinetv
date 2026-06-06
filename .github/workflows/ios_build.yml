@@ -20,23 +20,43 @@ jobs:
         run: flutter pub get
 
       - name: Sertifika ve Profile kurulum
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
-          p12-password: '1234'
-
-      - name: Provisioning Profile kurulum
         env:
+          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+          CERTIFICATES_P12_PASSWORD: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
           PROVISIONING_PROFILE: ${{ secrets.PROVISIONING_PROFILE }}
         run: |
+          # P12 kur
+          echo "$CERTIFICATES_P12" | base64 --decode > cert.p12
+          
+          # Keychain oluştur
+          security create-keychain -p "build123" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "build123" build.keychain
+          
+          # Sertifikayı yükle
+          security import cert.p12 -k build.keychain -P "$CERTIFICATES_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychain -d user -s build.keychain login.keychain
+          
+          # Partition list
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build123" build.keychain
+          
+          # Sertifika kontrol
+          security find-identity -v -p codesigning build.keychain
+          
+          # Provisioning Profile kur
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          printf '%s' "$PROVISIONING_PROFILE" | base64 --decode -o ~/Library/MobileDevice/Provisioning\ Profiles/TineTV.mobileprovision
+          echo "$PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/TineTV.mobileprovision
+          
+          # Profile kontrol
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Flutter analyze
         run: flutter analyze
 
       - name: Build IPA
-        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+        run: |
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist
 
       - name: IPA yükle
         uses: actions/upload-artifact@v4
@@ -51,7 +71,7 @@ jobs:
           APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          printf '%s' "$APPSTORE_PRIVATE_KEY" | base64 --decode -o ~/.appstoreconnect/private_keys/AuthKey_$APPSTORE_KEY_ID.p8
+          echo "$APPSTORE_PRIVATE_KEY" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_$APPSTORE_KEY_ID.p8
           xcrun altool --upload-app \
             --type ios \
             --file build/ios/ipa/*.ipa \
