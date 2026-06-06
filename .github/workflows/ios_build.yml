@@ -34,21 +34,18 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/TineTV.mobileprovision
 
-      - name: Sertifika kontrol
-        run: |
-          security find-identity -v -p codesigning
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
-
       - name: Flutter analyze
         run: flutter analyze
 
       - name: Build IPA
         run: |
           flutter build ipa --release \
-            --dart-define=FLUTTER_XCODE_DEVELOPMENT_TEAM=V38L48RNWG \
-            --dart-define=FLUTTER_XCODE_CODE_SIGN_STYLE=Manual \
-            --dart-define=FLUTTER_XCODE_CODE_SIGN_IDENTITY="Apple Distribution" \
-            --dart-define=FLUTTER_XCODE_PROVISIONING_PROFILE_SPECIFIER="TineTV Distribution"
+            --export-options-plist=ios/ExportOptions.plist
+        env:
+          DEVELOPMENT_TEAM: V38L48RNWG
+          CODE_SIGN_IDENTITY: Apple Distribution
+          CODE_SIGN_STYLE: Manual
+          PROVISIONING_PROFILE_SPECIFIER: TineTV Distribution
 
       - name: IPA yükle
         uses: actions/upload-artifact@v4
