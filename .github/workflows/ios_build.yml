@@ -36,9 +36,7 @@ jobs:
         run: flutter analyze
 
       - name: Build IPA
-        run: |
-          flutter build ipa --release \
-            --no-codesign
+        run: flutter build ipa --release
 
       - name: IPA imzala
         run: |
