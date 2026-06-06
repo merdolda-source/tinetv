@@ -24,6 +24,8 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
           p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+          keychain: build
+          keychain-password: build123
 
       - name: Provisioning Profile kurulum
         env:
@@ -32,16 +34,21 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/TineTV.mobileprovision
 
+      - name: Sertifika kontrol
+        run: |
+          security find-identity -v -p codesigning
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Flutter analyze
         run: flutter analyze
 
       - name: Build IPA
-        run: flutter build ipa --release
-
-      - name: IPA imzala
         run: |
-          /usr/bin/codesign --force --sign "Apple Distribution: SELMAN akbas (V38L48RNWG)" \
-            build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          flutter build ipa --release \
+            --dart-define=FLUTTER_XCODE_DEVELOPMENT_TEAM=V38L48RNWG \
+            --dart-define=FLUTTER_XCODE_CODE_SIGN_STYLE=Manual \
+            --dart-define=FLUTTER_XCODE_CODE_SIGN_IDENTITY="Apple Distribution" \
+            --dart-define=FLUTTER_XCODE_PROVISIONING_PROFILE_SPECIFIER="TineTV Distribution"
 
       - name: IPA yükle
         uses: actions/upload-artifact@v4
