@@ -36,7 +36,7 @@ jobs:
         run: flutter analyze
 
       - name: Build IPA
-        run: flutter build ipa --release
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 
       - name: IPA yükle
         uses: actions/upload-artifact@v4
