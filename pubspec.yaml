@@ -22,6 +22,7 @@ dependencies:
   better_player_plus: ^1.0.8
   unity_ads_plugin: ^0.3.30
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
@@ -44,3 +45,11 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.png
+flutter_native_splash:
+  color: "#0A0A0A"
+  image: assets/splash.png
+  color_dark: "#0A0A0A"
+  image_dark: assets/splash.png
+  android: true
+  ios: true
+  fullscreen: true
