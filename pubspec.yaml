@@ -1,7 +1,7 @@
 name: tinetv
 description: "TİNE TV - Live, VOD & Music"
 publish_to: 'none'
-version: 2.1.0+4
+version: 2.1.0+5
 
 environment:
   sdk: ^3.8.1
@@ -23,6 +23,7 @@ dependencies:
   unity_ads_plugin: ^0.3.30
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.7
+  app_tracking_transparency: ^3.0.4
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +46,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.png
+
 flutter_native_splash:
   color: "#0A0A0A"
   image: assets/splash.png
