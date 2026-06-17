@@ -26,14 +26,12 @@ class HomeController extends GetxController {
   }
 
   Future<void> _checkAndLoad() async {
-    // Önce Remote Config'den URL var mı kontrol et
     final remoteUrl = _rc.m3uUrl;
     if (remoteUrl.isNotEmpty) {
       currentUrl.value = remoteUrl;
       hasUrl.value = true;
       await loadChannels(remoteUrl);
     } else {
-      // Remote Config boşsa kullanıcı link girecek
       isLoading.value = false;
       hasUrl.value = false;
     }
