@@ -1,11 +1,12 @@
 import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 import '../../core/models/channel_model.dart';
 import '../../core/services/m3u_service.dart';
-
+import '../../core/services/remote_config_service.dart';
 
 class HomeController extends GetxController {
   final _m3uService = M3uService();
-  
+  final _rc = RemoteConfigService();
 
   final channels = <Channel>[].obs;
   final filteredChannels = <Channel>[].obs;
@@ -13,16 +14,41 @@ class HomeController extends GetxController {
   final selectedCategory = 'Tümü'.obs;
   final isLoading = true.obs;
   final searchQuery = ''.obs;
+  final currentUrl = ''.obs;
+  final hasUrl = false.obs;
+
+  final urlController = TextEditingController();
 
   @override
   void onInit() {
     super.onInit();
-    loadChannels();
+    _checkAndLoad();
   }
 
-  Future<void> loadChannels() async {
+  Future<void> _checkAndLoad() async {
+    // Önce Remote Config'den URL var mı kontrol et
+    final remoteUrl = _rc.m3uUrl;
+    if (remoteUrl.isNotEmpty) {
+      currentUrl.value = remoteUrl;
+      hasUrl.value = true;
+      await loadChannels(remoteUrl);
+    } else {
+      // Remote Config boşsa kullanıcı link girecek
+      isLoading.value = false;
+      hasUrl.value = false;
+    }
+  }
+
+  Future<void> loadFromUserUrl(String url) async {
+    if (url.trim().isEmpty) return;
+    currentUrl.value = url.trim();
+    hasUrl.value = true;
+    await loadChannels(url.trim());
+  }
+
+  Future<void> loadChannels(String url) async {
     isLoading.value = true;
-    final result = await _m3uService.fetchChannels();
+    final result = await _m3uService.fetchChannels(url);
     channels.value = result;
 
     final groups = result.map((c) => c.group ?? 'Diğer').toSet().toList();
@@ -40,6 +66,15 @@ class HomeController extends GetxController {
   void search(String query) {
     searchQuery.value = query;
     _applyFilters();
+  }
+
+  void clearUrl() {
+    currentUrl.value = '';
+    hasUrl.value = false;
+    channels.clear();
+    filteredChannels.clear();
+    categories.clear();
+    urlController.clear();
   }
 
   void _applyFilters() {
@@ -61,5 +96,11 @@ class HomeController extends GetxController {
     }
 
     filteredChannels.value = result;
+  }
+
+  @override
+  void onClose() {
+    urlController.dispose();
+    super.onClose();
   }
 }
