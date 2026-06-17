@@ -1,13 +1,10 @@
 import 'package:dio/dio.dart';
 import '../models/channel_model.dart';
-import 'remote_config_service.dart';
 
 class M3uService {
   final _dio = Dio();
-  final _rc = RemoteConfigService();
 
-  Future<List<Channel>> fetchChannels() async {
-    final url = _rc.m3uUrl;
+  Future<List<Channel>> fetchChannels(String url) async {
     if (url.isEmpty) return [];
 
     try {
