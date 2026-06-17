@@ -24,49 +24,187 @@ class HomeScreen extends StatelessWidget {
             fontSize: 22,
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: TextField(
-              onChanged: controller.search,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Kanal ara...',
-                hintStyle: const TextStyle(color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                filled: true,
-                fillColor: const Color(0xFF1A1A1A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-        ),
+        actions: [
+          Obx(() => controller.hasUrl.value
+              ? IconButton(
+                  icon: const Icon(Icons.link_off, color: Colors.grey),
+                  onPressed: controller.clearUrl,
+                  tooltip: 'Linki Değiştir',
+                )
+              : const SizedBox.shrink()),
+        ],
       ),
       body: Obx(() {
+        // Loading
         if (controller.isLoading.value) {
           return const Center(
             child: CircularProgressIndicator(color: Color(0xFFE50914)),
           );
         }
 
-        return Column(
+        // URL giriş ekranı
+        if (!controller.hasUrl.value) {
+          return _buildUrlInputScreen(controller);
+        }
+
+        // Kanal listesi
+        return _buildChannelList(controller);
+      }),
+    );
+  }
+
+  Widget _buildUrlInputScreen(HomeController controller) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Kategori listesi
+            const SizedBox(height: 40),
+            // İkon
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.play_circle_outline,
+                color: Color(0xFFE50914),
+                size: 60,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'M3U Oynatıcı',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Kanalları izlemek için M3U playlist linkinizi girin',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+            // URL giriş alanı
+            TextField(
+              controller: controller.urlController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'https://example.com/playlist.m3u',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.link, color: Color(0xFFE50914)),
+                filled: true,
+                fillColor: const Color(0xFF1A1A1A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE50914)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Yükle butonu
             SizedBox(
-              height: 44,
-              child: ListView.builder(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  controller.loadFromUserUrl(controller.urlController.text);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE50914),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Kanalları Yükle',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Bilgi kutusu
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nasıl kullanılır?',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '1. M3U playlist URL\'nizi girin\n'
+                    '2. "Kanalları Yükle" butonuna tıklayın\n'
+                    '3. Kanallarınız yüklenecek ve izlemeye başlayabilirsiniz',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChannelList(HomeController controller) {
+    return Column(
+      children: [
+        // Arama çubuğu
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: TextField(
+            onChanged: controller.search,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Kanal ara...',
+              hintStyle: const TextStyle(color: Colors.grey),
+              prefixIcon: const Icon(Icons.search, color: Colors.grey),
+              filled: true,
+              fillColor: const Color(0xFF1A1A1A),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+
+        // Kategori listesi
+        SizedBox(
+          height: 44,
+          child: Obx(() => ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemCount: controller.categories.length,
                 itemBuilder: (context, index) {
                   final cat = controller.categories[index];
-                  final isSelected = controller.selectedCategory.value == cat;
-                  return Obx(
-                    () => GestureDetector(
+                  return Obx(() {
+                    final isSelected = controller.selectedCategory.value == cat;
+                    return GestureDetector(
                       onTap: () => controller.filterByCategory(cat),
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
@@ -90,75 +228,86 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  );
+                    );
+                  });
                 },
-              ),
-            ),
-            const SizedBox(height: 8),
+              )),
+        ),
+        const SizedBox(height: 8),
 
-            // Kanal listesi
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 16 / 9,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: controller.filteredChannels.length,
-                itemBuilder: (context, index) {
-                  final channel = controller.filteredChannels[index];
-                  return GestureDetector(
-                    onTap: () {
-                      AdService().onChannelOpened();
-                      Get.to(() => PlayerScreen(channel: channel));
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (channel.logo != null)
-                            CachedNetworkImage(
-                              imageUrl: channel.logo!,
-                              height: 48,
-                              errorWidget: (_, __, ___) => const Icon(
+        // Kanal grid
+        Expanded(
+          child: Obx(() => controller.filteredChannels.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Kanal bulunamadı',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 16 / 9,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: controller.filteredChannels.length,
+                  itemBuilder: (context, index) {
+                    final channel = controller.filteredChannels[index];
+                    return GestureDetector(
+                      onTap: () {
+                        AdService().onChannelOpened();
+                        Get.to(() => PlayerScreen(channel: channel));
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1A),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (channel.logo != null)
+                              CachedNetworkImage(
+                                imageUrl: channel.logo!,
+                                height: 48,
+                                errorWidget: (_, __, ___) => const Icon(
+                                  Icons.tv,
+                                  color: Colors.grey,
+                                  size: 40,
+                                ),
+                              )
+                            else
+                              const Icon(
                                 Icons.tv,
                                 color: Colors.grey,
                                 size: 40,
                               ),
-                            )
-                          else
-                            const Icon(Icons.tv, color: Colors.grey, size: 40),
-                          const SizedBox(height: 6),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text(
-                              channel.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                channel.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      }),
+                    );
+                  },
+                )),
+        ),
+      ],
     );
   }
 }
