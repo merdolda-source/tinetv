@@ -30,8 +30,7 @@ class RemoteConfigService {
     'ad_free_hours': 24,
     // TineFlix — kapalıyken sekme hiç gösterilmez, m3u ekranı değişmeden kalır.
     'tineflix_enabled': false,
-    'tineflix_api_url': '', // m3u_url ile aynı mantık — backend adresi değişirse/kapanırsa
-                            // uygulama güncellemesi gerekmeden sadece Firebase'ten değiştirilsin.
+    'tineflix_api_url': 'https://viptine.site/1/dramaflix_api.php',
     'tineflix_ep_ad_interval': 10,
     // Siteler — kapalıyken sekme hiç gösterilmez.
     'sites_enabled': false,
