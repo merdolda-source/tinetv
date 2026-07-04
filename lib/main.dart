@@ -84,18 +84,4 @@ class _TineTVAppState extends State<TineTVApp> with WidgetsBindingObserver {
       home: const MainNavScreen(),
     );
   }
-
-}      title: 'TİNE TV',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE50914),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
-      ),
-      home: const HomeScreen(),
-    );
-  }
 }
