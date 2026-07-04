@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'home_controller.dart';
 import '../player/player_screen.dart';
 import '../../core/services/ad_service.dart';
+import '../../core/services/ad_free_service.dart';
+import '../../core/services/remote_config_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,6 +27,14 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              AdFreeService().isAdFree ? Icons.card_giftcard : Icons.card_giftcard_outlined,
+              color: const Color(0xFFE50914),
+            ),
+            tooltip: 'Reklamsız İzle',
+            onPressed: () => _watchRewardedForAdFree(context),
+          ),
           Obx(() => controller.hasUrl.value
               ? IconButton(
                   icon: const Icon(Icons.link_off, color: Colors.grey),
@@ -50,6 +60,31 @@ class HomeScreen extends StatelessWidget {
         // Kanal listesi
         return _buildChannelList(controller);
       }),
+    );
+  }
+
+  void _watchRewardedForAdFree(BuildContext context) {
+    if (AdFreeService().isAdFree) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Zaten reklamsız moddasın, keyfini çıkar! 🎉')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reklam yükleniyor...')),
+    );
+    AdService().showRewardedForAdFree(
+      onGranted: () {
+        final hours = RemoteConfigService().adFreeHours;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ $hours saat reklamsız! Bol keyifli izlemeler.')),
+        );
+      },
+      onFailed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reklam gösterilemedi, biraz sonra tekrar dene.')),
+        );
+      },
     );
   }
 
