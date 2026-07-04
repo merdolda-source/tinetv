@@ -27,6 +27,16 @@ class RemoteConfigService {
     'categories_json': '[]',
     'ad_interstitial_wait_seconds': 5,
     'ad_rewarded_wait_seconds': 3,
+    'ad_free_hours': 24,
+    // TineFlix — kapalıyken sekme hiç gösterilmez, m3u ekranı değişmeden kalır.
+    'tineflix_enabled': false,
+    'tineflix_api_url': '', // m3u_url ile aynı mantık — backend adresi değişirse/kapanırsa
+                            // uygulama güncellemesi gerekmeden sadece Firebase'ten değiştirilsin.
+    'tineflix_ep_ad_interval': 10,
+    // Siteler — kapalıyken sekme hiç gösterilmez.
+    'sites_enabled': false,
+    'sites_json': '[]',
+    'site_nav_ad_click_count': 3,
   };
 
   Future<void> initialize() async {
@@ -62,5 +72,15 @@ class RemoteConfigService {
   String get admobNativeId => _rc.getString('admob_native_id');
   String get admobRewardedId => _rc.getString('admob_rewarded_id');
   String get unityGameId => _rc.getString('unity_game_id');
+  int get adFreeHours => _rc.getInt('ad_free_hours');
+
+  bool get tineflixEnabled => _rc.getBool('tineflix_enabled');
+  String get tineflixApiUrl => _rc.getString('tineflix_api_url');
+  int get tineflixEpAdInterval => _rc.getInt('tineflix_ep_ad_interval');
+
+  bool get sitesEnabled => _rc.getBool('sites_enabled');
+  String get sitesJson => _rc.getString('sites_json');
+  int get siteNavAdClickCount => _rc.getInt('site_nav_ad_click_count');
+
   String getString(String key) => _rc.getString(key);
 }
