@@ -58,11 +58,16 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
       BetterPlayerDataSourceType.network,
       _service.proxiedStreamUrl(ep.url),
       liveStream: false,
+      // Oynatıcı, video/altyazı akışını kendi ağ isteğiyle çekiyor — bu
+      // istek DramaflixService'in Dio istemcisinden geçmiyor, o yüzden
+      // User-Agent'ı burada ayrıca vermek zorundayız (bkz. DramaflixService.userAgent).
+      headers: const {'User-Agent': DramaflixService.userAgent},
       subtitles: sub != null
           ? [
               BetterPlayerSubtitlesSource(
                 type: BetterPlayerSubtitlesSourceType.network,
                 urls: [_service.proxiedSubtitleUrl(sub.url)],
+                headers: const {'User-Agent': DramaflixService.userAgent},
                 selectedByDefault: true,
               ),
             ]

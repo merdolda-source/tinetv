@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/series_model.dart';
 import '../../core/services/dramaflix_service.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/widgets/native_ad_card.dart';
 import 'tineflix_player_screen.dart';
 
 class TineflixDetailScreen extends StatefulWidget {
@@ -200,7 +201,10 @@ class _TineflixDetailScreenState extends State<TineflixDetailScreen> {
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+          sliver: SliverToBoxAdapter(child: NativeAdCard()),
+        ),
       ],
     );
   }

@@ -4,6 +4,74 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'tineflix_controller.dart';
 import 'tineflix_detail_screen.dart';
 import '../../core/models/series_model.dart';
+import '../../core/services/remote_config_service.dart';
+import '../../core/widgets/native_ad_card.dart';
+
+const _crossAxisCount = 3;
+const _childAspectRatio = 0.62;
+
+// Dizi poster kartları (dikey) ile native reklam (yatay küçük şablon)
+// birbirine uymadığı için reklam, N dizide bir tam genişlikte ayrı bir
+// satır olarak araya sokuluyor (Filmler ekranıyla aynı mantık).
+List<Widget> _sliversOlustur(List<Series> seriesList, bool loadingMore) {
+  final aralik = RemoteConfigService().gridNativeAdInterval;
+  final slivers = <Widget>[];
+
+  if (aralik <= 0) {
+    slivers.add(SliverPadding(
+      padding: const EdgeInsets.all(12),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _crossAxisCount,
+          childAspectRatio: _childAspectRatio,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _SeriesCard(series: seriesList[index]),
+          childCount: seriesList.length,
+        ),
+      ),
+    ));
+  } else {
+    for (var start = 0; start < seriesList.length; start += aralik) {
+      final end = (start + aralik < seriesList.length) ? start + aralik : seriesList.length;
+      final parca = seriesList.sublist(start, end);
+      slivers.add(SliverPadding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _crossAxisCount,
+            childAspectRatio: _childAspectRatio,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _SeriesCard(series: parca[index]),
+            childCount: parca.length,
+          ),
+        ),
+      ));
+      if (end < seriesList.length) {
+        slivers.add(const SliverPadding(
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+          sliver: SliverToBoxAdapter(child: NativeAdCard()),
+        ));
+      }
+    }
+  }
+
+  slivers.add(SliverPadding(
+    padding: const EdgeInsets.all(12),
+    sliver: SliverToBoxAdapter(
+      child: loadingMore
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE50914), strokeWidth: 2))
+          : const SizedBox.shrink(),
+    ),
+  ));
+
+  return slivers;
+}
 
 class TineflixScreen extends StatefulWidget {
   const TineflixScreen({super.key});
@@ -92,27 +160,9 @@ class _TineflixScreenState extends State<TineflixScreen> {
                   child: Text('Dizi bulunamadı', style: TextStyle(color: Colors.grey)),
                 );
               }
-              return GridView.builder(
+              return CustomScrollView(
                 controller: _scrollController,
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.62,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: controller.seriesList.length + (controller.isLoadingMore.value ? 3 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= controller.seriesList.length) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFE50914),
-                        strokeWidth: 2,
-                      ),
-                    );
-                  }
-                  return _SeriesCard(series: controller.seriesList[index]);
-                },
+                slivers: _sliversOlustur(controller.seriesList, controller.isLoadingMore.value),
               );
             }),
           ),
