@@ -30,6 +30,7 @@ void main() async {
     await AppTrackingTransparency.requestTrackingAuthorization();
   }
 
+  await AdService().gatherConsent();
   await AdService().initialize();
 
   runApp(const TineTVApp());
