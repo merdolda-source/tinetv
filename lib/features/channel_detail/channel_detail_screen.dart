@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../core/models/channel_model.dart';
 import '../../core/services/ad_service.dart';
 import '../../core/widgets/native_ad_card.dart';
@@ -109,40 +108,19 @@ class ChannelDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 50,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _izle(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE50914),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              icon: const Icon(Icons.play_arrow, color: Colors.white),
-                              label: const Text('İZLE',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                            ),
-                          ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _izle(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE50914),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 50,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: () => SharePlus.instance.share(
-                              ShareParams(text: '${channel.name} — TİNE TV'),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1A1A1A),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: EdgeInsets.zero,
-                            ),
-                            child: const Icon(Icons.share, color: Colors.white, size: 20),
-                          ),
-                        ),
-                      ],
+                        icon: const Icon(Icons.play_arrow, color: Colors.white),
+                        label: const Text('İZLE',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
                     ),
                     if (channel.group != null && channel.group!.isNotEmpty) ...[
                       const SizedBox(height: 22),
