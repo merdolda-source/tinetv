@@ -30,12 +30,28 @@ class RemoteConfigService {
     'ad_free_hours': 24,
     // TineFlix — kapalıyken sekme hiç gösterilmez, m3u ekranı değişmeden kalır.
     'tineflix_enabled': false,
-    'tineflix_api_url': 'https://viptine.site/1/dramaflix_api.php',
+    'tineflix_api_url': '', // m3u_url ile aynı mantık — backend adresi değişirse/kapanırsa
+                            // uygulama güncellemesi gerekmeden sadece Firebase'ten değiştirilsin.
     'tineflix_ep_ad_interval': 10,
     // Siteler — kapalıyken sekme hiç gösterilmez.
     'sites_enabled': false,
     'sites_json': '[]',
     'site_nav_ad_click_count': 3,
+    // Film — kapalıyken sekme hiç gösterilmez.
+    'film_enabled': false,
+    'film_api_url': '',
+    // Puan Durumu — kapalıyken sekme hiç gösterilmez.
+    'puanlig_enabled': false,
+    'puanlig_api_url': '',
+    // CanlıSkor — kapalıyken sekme hiç gösterilmez.
+    'canliskor_enabled': false,
+    'canliskor_api_url': '',
+    'canli_skor_refresh_ms': 1000,
+    // Haberler — kapalıyken sekme hiç gösterilmez.
+    'haberler_enabled': false,
+    'haber_api_url': '',
+    // Listelere kaç öğede bir native reklam gömülsün (Android ile aynı anahtar).
+    'grid_native_ad_interval': 10,
   };
 
   Future<void> initialize() async {
@@ -80,6 +96,21 @@ class RemoteConfigService {
   bool get sitesEnabled => _rc.getBool('sites_enabled');
   String get sitesJson => _rc.getString('sites_json');
   int get siteNavAdClickCount => _rc.getInt('site_nav_ad_click_count');
+
+  bool get filmEnabled => _rc.getBool('film_enabled');
+  String get filmApiUrl => _rc.getString('film_api_url');
+
+  bool get puanligEnabled => _rc.getBool('puanlig_enabled');
+  String get puanligApiUrl => _rc.getString('puanlig_api_url');
+
+  bool get canliskorEnabled => _rc.getBool('canliskor_enabled');
+  String get canliskorApiUrl => _rc.getString('canliskor_api_url');
+  int get canliSkorRefreshMs => _rc.getInt('canli_skor_refresh_ms');
+
+  bool get haberlerEnabled => _rc.getBool('haberler_enabled');
+  String get haberApiUrl => _rc.getString('haber_api_url');
+
+  int get gridNativeAdInterval => _rc.getInt('grid_native_ad_interval');
 
   String getString(String key) => _rc.getString(key);
 }

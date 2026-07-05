@@ -45,10 +45,20 @@ class AdService {
 
   void showAppOpen() {
     if (_adFree.isAdFree) return;
-    if (_rc.adProvider == 'admob' && _appOpenAd != null) {
-      _appOpenAd!.show();
+    final ad = _appOpenAd;
+    if (_rc.adProvider == 'admob' && ad != null) {
       _appOpenAd = null;
-      _loadAppOpen();
+      ad.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (a) {
+          a.dispose();
+          _loadAppOpen();
+        },
+        onAdFailedToShowFullScreenContent: (a, error) {
+          a.dispose();
+          _loadAppOpen();
+        },
+      );
+      ad.show();
     }
   }
 
@@ -72,10 +82,20 @@ class AdService {
       return;
     }
 
-    if (_rc.adProvider == 'admob' && _interstitialAd != null) {
-      _interstitialAd!.show();
+    final ad = _interstitialAd;
+    if (_rc.adProvider == 'admob' && ad != null) {
       _interstitialAd = null;
-      _loadInterstitial();
+      ad.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (a) {
+          a.dispose();
+          _loadInterstitial();
+        },
+        onAdFailedToShowFullScreenContent: (a, error) {
+          a.dispose();
+          _loadInterstitial();
+        },
+      );
+      ad.show();
     } else if (_rc.adProvider == 'unity') {
       UnityAds.load(
         placementId: _rc.getString('unity_interstitial_id'),
@@ -103,6 +123,10 @@ class AdService {
         request: const AdRequest(),
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (ad) {
+            ad.fullScreenContentCallback = FullScreenContentCallback(
+              onAdDismissedFullScreenContent: (a) => a.dispose(),
+              onAdFailedToShowFullScreenContent: (a, error) => a.dispose(),
+            );
             ad.show(onUserEarnedReward: (_, reward) => onReward());
           },
           onAdFailedToLoad: (_) {},

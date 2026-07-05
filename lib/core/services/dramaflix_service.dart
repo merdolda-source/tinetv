@@ -10,8 +10,14 @@ class DramaflixService {
   factory DramaflixService() => _instance;
   DramaflixService._();
 
+  // dramaflix_api.php TÜM route'larda (r=api, r=hls, r=seg, r=sub) bu
+  // User-Agent'ı arıyor — sadece JSON istekleri değil, oynatıcının
+  // video/altyazı akışı için attığı istekler de bunu taşımak zorunda,
+  // yoksa sunucu onlara da 404 döner (video "Video can't be played" olur).
+  static const userAgent = 'TineTV-iOS/1.0';
+
   final Dio _dio = Dio(BaseOptions(
-    headers: {'User-Agent': 'TineTV-iOS/1.0'},
+    headers: {'User-Agent': userAgent},
     connectTimeout: const Duration(seconds: 12),
     receiveTimeout: const Duration(seconds: 20),
   ));
