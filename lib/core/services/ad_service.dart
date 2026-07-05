@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:unity_ads_plugin/unity_ads_plugin.dart';
@@ -14,6 +15,36 @@ class AdService {
   InterstitialAd? _interstitialAd;
   AppOpenAd? _appOpenAd;
   int _channelOpenCount = 0;
+
+  /// AB/İngiltere/İsviçre gibi bölgelerden gelen kullanıcılara reklam
+  /// kişiselleştirme onayı sorar (SDK bölgeyi otomatik algılar — Türkiye'den
+  /// genelde form çıkmaz). Form kapandıktan/atlandıktan SONRA reklam SDK'ları
+  /// başlatılır — Android'deki SplashActivity.gatherConsentThenInit() ile
+  /// aynı akış. Bu adım olmadan Google, AdMob hesabını politika ihlaliyle
+  /// işaretleyebiliyor.
+  Future<void> gatherConsent() async {
+    final completer = Completer<void>();
+    void finish() {
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    try {
+      ConsentInformation.instance.requestConsentInfoUpdate(
+        ConsentRequestParameters(),
+        () {
+          try {
+            ConsentForm.loadAndShowConsentFormIfRequired((_) => finish());
+          } catch (_) {
+            finish();
+          }
+        },
+        (_) => finish(),
+      );
+    } catch (_) {
+      finish();
+    }
+    return completer.future;
+  }
 
   Future<void> initialize() async {
     final provider = _rc.adProvider;
@@ -43,8 +74,10 @@ class AdService {
     );
   }
 
+  // App Open, Android'deki gibi reklamsız modda bile gösterilir — yalnızca
+  // geçiş (interstitial) reklamı ödüllü reklamsız süreyle durdurulur, çünkü
+  // ana gelir app-open + native reklamlardan geliyor.
   void showAppOpen() {
-    if (_adFree.isAdFree) return;
     final ad = _appOpenAd;
     if (_rc.adProvider == 'admob' && ad != null) {
       _appOpenAd = null;
