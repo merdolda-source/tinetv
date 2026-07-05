@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'home_controller.dart';
-import '../player/player_screen.dart';
+import '../channel_detail/channel_detail_screen.dart';
 import '../../core/services/ad_service.dart';
 import '../../core/services/ad_free_service.dart';
 import '../../core/services/remote_config_service.dart';
@@ -292,10 +292,7 @@ class HomeScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final channel = controller.filteredChannels[index];
                     return GestureDetector(
-                      onTap: () {
-                        AdService().onChannelOpened();
-                        Get.to(() => PlayerScreen(channel: channel));
-                      },
+                      onTap: () => Get.to(() => ChannelDetailScreen(channel: channel)),
                       child: Container(
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A1A1A),
