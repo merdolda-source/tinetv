@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 
 class RemoteConfigService {
@@ -20,6 +21,16 @@ class RemoteConfigService {
     'admob_interstitial_id': '',
     'admob_native_id': '',
     'admob_rewarded_id': '',
+    // AdMob'da reklam birimleri (ad unit) belirli bir "app"e bağlıdır — Android
+    // ve iOS AdMob konsolunda AYRI app olarak kayıtlı (GADApplicationIdentifier
+    // iOS'ta ~9827212102). Bu yüzden iOS için AYRI reklam birimi ID'lerine
+    // ihtiyaç var; RC'den "_ios" anahtarı henüz tanımlı değilse (fetch
+    // gelmeden önce veya konsola hiç eklenmezse) buradaki yerel varsayılan
+    // devreye girer — Firebase konsolundaki güncel değerlerle senkron tutuldu.
+    'admob_app_open_id_ios':     'ca-app-pub-2289573527937577/7387612952',
+    'admob_interstitial_id_ios': 'ca-app-pub-2289573527937577/7220091995',
+    'admob_native_id_ios':       'ca-app-pub-2289573527937577/9654683647',
+    'admob_rewarded_id_ios':     'ca-app-pub-2289573527937577/8197262202',
     'unity_game_id': '',
     'unity_interstitial_id': 'Interstitial_iOS',
     'unity_rewarded_id': 'Rewarded_iOS',
@@ -82,10 +93,16 @@ class RemoteConfigService {
   int get rewardedWaitSeconds => _rc.getInt('ad_rewarded_wait_seconds');
   bool get categoriesEnabled => _rc.getBool('categories_enabled');
   String get categoriesJson => _rc.getString('categories_json');
-  String get admobAppOpenId => _rc.getString('admob_app_open_id');
-  String get admobInterstitialId => _rc.getString('admob_interstitial_id');
-  String get admobNativeId => _rc.getString('admob_native_id');
-  String get admobRewardedId => _rc.getString('admob_rewarded_id');
+  // iOS'ta _ios anahtarı okunur; Android'de (ve diğer platformlarda) eski
+  // paylaşılan anahtar okunur — Android tarafı değişmedi.
+  String get admobAppOpenId =>
+      _rc.getString(Platform.isIOS ? 'admob_app_open_id_ios' : 'admob_app_open_id');
+  String get admobInterstitialId =>
+      _rc.getString(Platform.isIOS ? 'admob_interstitial_id_ios' : 'admob_interstitial_id');
+  String get admobNativeId =>
+      _rc.getString(Platform.isIOS ? 'admob_native_id_ios' : 'admob_native_id');
+  String get admobRewardedId =>
+      _rc.getString(Platform.isIOS ? 'admob_rewarded_id_ios' : 'admob_rewarded_id');
   String get unityGameId => _rc.getString('unity_game_id');
   int get adFreeHours => _rc.getInt('ad_free_hours');
 
