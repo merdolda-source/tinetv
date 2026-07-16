@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:yandex_mobileads/mobile_ads.dart' as ya;
 import '../services/ad_free_service.dart';
 import '../services/remote_config_service.dart';
 
-/// Listelere (CanlıSkor, Filmler vb.) gömülen gerçek native reklam kartı.
+/// Listelere (CanlıSkor, Filmler vb.) gömülen native reklam kartı.
 ///
-/// AdMob'un hazır "Native Template" (Small) tasarımını kullanır — bu, Android
-/// tarafındaki gibi özel bir platform view/factory (Swift/Kotlin) yazmaya
-/// gerek kalmadan, salt Dart tarafından güvenle çalışır.
+/// Ağ seçimi Android'deki gibi resolver'a bağlı (RemoteConfigService.nativeNetwork):
+///   • admob  → AdMob "Native Template" (Small)
+///   • yandex → Yandex "adaptive inline banner" (Flutter'da native format YOK;
+///              bu format video/medya destekli ve yüksek CPM — native yerine geçer)
+///
+/// Reklamsız mod / native kapalı / uygun birim yoksa gizli kalır.
 class NativeAdCard extends StatefulWidget {
   const NativeAdCard({super.key});
 
@@ -16,30 +20,47 @@ class NativeAdCard extends StatefulWidget {
 }
 
 class _NativeAdCardState extends State<NativeAdCard> {
-  NativeAd? _ad;
+  final _rc = RemoteConfigService();
+
+  // AdMob
+  NativeAd? _admobAd;
+  // Yandex (adaptive inline banner)
+  ya.BannerAd? _yandexBanner;
+
+  String _net = 'none';
   bool _loaded = false;
   bool _failed = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  void _load() {
-    final rc = RemoteConfigService();
-    // Reklamsız mod, native reklam kapalı, AdMob dışı bir sağlayıcı veya
-    // birim ID tanımlı değilse hiç yüklemeye çalışmadan gizli kal.
-    if (AdFreeService().isAdFree ||
-        !rc.nativeAdEnabled ||
-        rc.adProvider != 'admob' ||
-        rc.admobNativeId.isEmpty) {
+    if (AdFreeService().isAdFree || !_rc.nativeAdEnabled) {
       _failed = true;
       return;
     }
+    _net = _rc.nativeNetwork; // admob | yandex
+    // Boyut için ilk frame'de MediaQuery gerekiyor.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
 
-    _ad = NativeAd(
-      adUnitId: rc.admobNativeId,
+  void _load() {
+    if (!mounted) return;
+    if (_net == 'admob') {
+      _loadAdmob();
+    } else if (_net == 'yandex') {
+      _loadYandex();
+    } else {
+      setState(() => _failed = true);
+    }
+  }
+
+  void _loadAdmob() {
+    if (_rc.admobNativeId.isEmpty) {
+      setState(() => _failed = true);
+      return;
+    }
+    _admobAd = NativeAd(
+      adUnitId: _rc.admobNativeId,
       request: const AdRequest(),
       nativeTemplateStyle: NativeTemplateStyle(
         templateType: TemplateType.small,
@@ -65,7 +86,7 @@ class _NativeAdCardState extends State<NativeAdCard> {
           ad.dispose();
           if (!mounted) return;
           setState(() {
-            _ad = null;
+            _admobAd = null;
             _failed = true;
           });
         },
@@ -73,15 +94,49 @@ class _NativeAdCardState extends State<NativeAdCard> {
     )..load();
   }
 
+  void _loadYandex() {
+    if (_rc.yandexNativeId.isEmpty) {
+      setState(() => _failed = true);
+      return;
+    }
+    final screenWidth = MediaQuery.of(context).size.width.round();
+    final banner = ya.BannerAd(
+      adSize: ya.BannerAdSize.inline(width: screenWidth, maxHeight: 320),
+    );
+    banner.loadStateStream.listen((state) {
+      if (!mounted) return;
+      if (state is ya.BannerAdLoadStateLoaded) {
+        setState(() => _loaded = true);
+      } else if (state is ya.BannerAdLoadStateError) {
+        setState(() {
+          _yandexBanner = null;
+          _failed = true;
+        });
+      }
+    });
+    banner.load(ya.AdRequest(adUnitId: _rc.yandexNativeId));
+    _yandexBanner = banner;
+  }
+
   @override
   void dispose() {
-    _ad?.dispose();
+    _admobAd?.dispose();
+    _yandexBanner?.destroy();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_failed || !_loaded || _ad == null) return const SizedBox.shrink();
+    if (_failed || !_loaded) return const SizedBox.shrink();
+
+    Widget? adWidget;
+    if (_net == 'admob' && _admobAd != null) {
+      adWidget = SizedBox(height: 110, child: AdWidget(ad: _admobAd!));
+    } else if (_net == 'yandex' && _yandexBanner != null) {
+      adWidget = ya.AdWidget(bannerAd: _yandexBanner!);
+    }
+    if (adWidget == null) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       clipBehavior: Clip.antiAlias,
@@ -91,10 +146,7 @@ class _NativeAdCardState extends State<NativeAdCard> {
       ),
       child: Stack(
         children: [
-          SizedBox(height: 110, child: AdWidget(ad: _ad!)),
-          // Google'ın kendi "Ad" rozetinin yanı sıra, reklam olduğunu daha
-          // görünür/net belirtmek için Türkçe "REKLAM" etiketi ekleniyor —
-          // hem şeffaflık hem mağaza politikaları açısından gerekli.
+          adWidget,
           Positioned(
             top: 6,
             left: 6,
