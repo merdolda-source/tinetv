@@ -10,6 +10,12 @@ class PuandurumuController extends GetxController {
   final aktifLig = ''.obs;
   final aktifSekme = 'genel'.obs; // genel | icSaha | disSaha
 
+  // ── Fikstür (Android'deki dual-tab: Puan Durumu / Fikstür) ────────────────
+  final anaSekme = 'puan'.obs; // puan | fikstur
+  final fikstur = Rxn<FiksturVeri>();
+  final fiksturLoading = false.obs;
+  final aktifHafta = 0.obs; // 0 = sunucudan güncel hafta
+
   @override
   void onInit() {
     super.onInit();
@@ -29,7 +35,11 @@ class PuandurumuController extends GetxController {
   void selectLig(String key) {
     if (aktifLig.value == key) return;
     aktifLig.value = key;
+    // Lig değişince fikstür haftası da değişebilir → sıfırla, güncel haftayı al.
+    aktifHafta.value = 0;
+    fikstur.value = null;
     load(lig: key);
+    if (anaSekme.value == 'fikstur') loadFikstur();
   }
 
   void selectSekme(String sekme) {
@@ -47,5 +57,31 @@ class PuandurumuController extends GetxController {
       default:
         return v.genel;
     }
+  }
+
+  // ── Fikstür işlemleri ─────────────────────────────────────────────────────
+  void selectAnaSekme(String s) {
+    if (anaSekme.value == s) return;
+    anaSekme.value = s;
+    if (s == 'fikstur' && fikstur.value == null) loadFikstur();
+  }
+
+  Future<void> loadFikstur({int? hafta}) async {
+    fiksturLoading.value = true;
+    final result = await _service.fetchFikstur(
+      lig: aktifLig.value.isNotEmpty ? aktifLig.value : null,
+      hafta: hafta ?? aktifHafta.value,
+    );
+    if (result != null) {
+      fikstur.value = result;
+      aktifHafta.value = result.hafta;
+    }
+    fiksturLoading.value = false;
+  }
+
+  void selectHafta(int h) {
+    if (h == aktifHafta.value) return;
+    aktifHafta.value = h;
+    loadFikstur(hafta: h);
   }
 }
