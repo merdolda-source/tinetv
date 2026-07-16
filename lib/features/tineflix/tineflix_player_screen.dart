@@ -40,19 +40,52 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
       controlsConfiguration: BetterPlayerControlsConfiguration(
         enableSkips: false,
         enableFullscreen: false,
-        enableOverflowMenu: false,
+        // Ses + altyazı + hız seçimi için 3-nokta (overflow) menüsü açıldı.
+        enableOverflowMenu: true,
+        enableSubtitles: true,
+        enableAudioTracks: true,
+        enableQualities: true,
+        enablePlaybackSpeed: true,
+        overflowMenuIconsColor: Colors.white,
         controlBarColor: Colors.black54,
         iconsColor: Colors.white,
         progressBarPlayedColor: Color(0xFFE50914),
         progressBarHandleColor: Color(0xFFE50914),
       ),
     ));
+
+    // Bölüm bitince OTOMATİK sonraki bölüme geç (Android gibi). _goToEpisode
+    // sınır kontrolü + reklam arası + _switchingEpisode kilidini kendi içinde
+    // hallediyor; son bölümde index+1 sınırdan taşınca sessizce durur.
+    _controller.addEventsListener((event) {
+      if (event.betterPlayerEventType == BetterPlayerEventType.finished) {
+        _goToEpisode(_currentIndex + 1);
+      }
+    });
+
     _loadEpisode(_currentIndex);
   }
 
   void _loadEpisode(int index) {
     final ep = widget.detail.episodes[index];
-    final sub = ep.preferredSubtitle;
+    final preferred = ep.preferredSubtitle;
+
+    // TÜM harici altyazıları menüye ekle (kullanıcı seçebilsin). Tercih edilen
+    // (TR) varsayılan seçili gelir. Her birinin adı menüde görünür.
+    final List<BetterPlayerSubtitlesSource>? subtitleSources = ep.subtitles.isEmpty
+        ? null
+        : ep.subtitles.map((s) {
+            final ad = s.label.isNotEmpty
+                ? s.label
+                : (s.language.isNotEmpty ? s.language : 'Altyazı');
+            return BetterPlayerSubtitlesSource(
+              type: BetterPlayerSubtitlesSourceType.network,
+              name: ad,
+              urls: [_service.proxiedSubtitleUrl(s.url)],
+              headers: const {'User-Agent': DramaflixService.userAgent},
+              selectedByDefault: preferred != null && s.url == preferred.url,
+            );
+          }).toList();
 
     final dataSource = BetterPlayerDataSource(
       BetterPlayerDataSourceType.network,
@@ -62,16 +95,11 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
       // istek DramaflixService'in Dio istemcisinden geçmiyor, o yüzden
       // User-Agent'ı burada ayrıca vermek zorundayız (bkz. DramaflixService.userAgent).
       headers: const {'User-Agent': DramaflixService.userAgent},
-      subtitles: sub != null
-          ? [
-              BetterPlayerSubtitlesSource(
-                type: BetterPlayerSubtitlesSourceType.network,
-                urls: [_service.proxiedSubtitleUrl(sub.url)],
-                headers: const {'User-Agent': DramaflixService.userAgent},
-                selectedByDefault: true,
-              ),
-            ]
-          : null,
+      // HLS/DASH içindeki gömülü ses/altyazı/kalite parçalarını menüye getir.
+      useAsmsSubtitles: true,
+      useAsmsAudioTracks: true,
+      useAsmsTracks: true,
+      subtitles: subtitleSources,
     );
     _controller.setupDataSource(dataSource);
     ProgressService.saveProgress(widget.detail.series.slug, index);
