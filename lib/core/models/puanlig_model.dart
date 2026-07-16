@@ -75,3 +75,65 @@ class PuanDurumuVeri {
     required this.disSaha,
   });
 }
+
+// ── Fikstür (Android'deki FiksturMac ile birebir alanlar) ───────────────────
+class FiksturMac {
+  final String takim1;
+  final String takim2;
+  final String takim1Logo;
+  final String takim2Logo;
+  final String saat;
+  final String? tarih;       // "GG.AA" — sunucu bulamazsa null
+  final String? durum;       // sadece maç bugünse: canli | bitti | baslamadi
+  final String? durumYazisi;
+  final String? skor1;
+  final String? skor2;
+
+  FiksturMac({
+    required this.takim1,
+    required this.takim2,
+    required this.takim1Logo,
+    required this.takim2Logo,
+    required this.saat,
+    this.tarih,
+    this.durum,
+    this.durumYazisi,
+    this.skor1,
+    this.skor2,
+  });
+
+  bool get canli => durum == 'canli';
+  bool get skorVar => skor1 != null && skor2 != null;
+
+  factory FiksturMac.fromJson(Map<String, dynamic> json, String baseUrl) => FiksturMac(
+        takim1: json['takim1'] as String? ?? '',
+        takim2: json['takim2'] as String? ?? '',
+        takim1Logo: _fx(json['takim1Logo'] as String? ?? '', baseUrl),
+        takim2Logo: _fx(json['takim2Logo'] as String? ?? '', baseUrl),
+        saat: json['saat'] as String? ?? '',
+        tarih: json['tarih']?.toString(),
+        durum: json['durum']?.toString(),
+        durumYazisi: json['durumYazisi']?.toString(),
+        skor1: json['skor1']?.toString(),
+        skor2: json['skor2']?.toString(),
+      );
+
+  static String _fx(String path, String baseUrl) {
+    if (path.isEmpty || path.startsWith('http')) return path;
+    return Uri.parse(baseUrl).resolve(path).toString();
+  }
+}
+
+class FiksturVeri {
+  final int hafta;
+  final int maxHafta;
+  final List<PuanLig> ligler;
+  final List<FiksturMac> maclar;
+
+  FiksturVeri({
+    required this.hafta,
+    required this.maxHafta,
+    required this.ligler,
+    required this.maclar,
+  });
+}
