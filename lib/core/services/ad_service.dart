@@ -73,11 +73,7 @@ class AdService {
         );
       } catch (_) {}
     }
-    // Yandex — native + app open admob değilse buraya düştüğü için HER ZAMAN
-    // başlatmayı dene (Android'deki "yandex hep init" mantığı).
-    try {
-      await ya.MobileAds.initialize();
-    } catch (_) {}
+    // Yandex SDK v8 ilk reklam yüklemesinde OTOMATİK başlar — ayrı init yok.
 
     _loadInterstitial();
     _loadAppOpen();
@@ -106,14 +102,9 @@ class AdService {
   Future<void> _loadYandexAppOpen() async {
     if (_rc.yandexAppOpenId.isEmpty) return;
     try {
-      final loader = await ya.AppOpenAdLoader.create(
-        onAdLoaded: (ad) => _yandexAppOpen = ad,
-        onAdFailedToLoad: (error) => _yandexAppOpen = null,
-      );
-      await loader.loadAd(
-        adRequestConfiguration:
-            ya.AdRequestConfiguration(adUnitId: _rc.yandexAppOpenId),
-      );
+      final loader = ya.AppOpenAdLoader();
+      _yandexAppOpen =
+          await loader.loadAd(adRequest: ya.AdRequest(adUnitId: _rc.yandexAppOpenId));
     } catch (_) {
       _yandexAppOpen = null;
     }
@@ -185,14 +176,9 @@ class AdService {
   Future<void> _loadYandexInterstitial() async {
     if (_rc.yandexInterstitialId.isEmpty) return;
     try {
-      final loader = await ya.InterstitialAdLoader.create(
-        onAdLoaded: (ad) => _yandexInterstitial = ad,
-        onAdFailedToLoad: (error) => _yandexInterstitial = null,
-      );
-      await loader.loadAd(
-        adRequestConfiguration:
-            ya.AdRequestConfiguration(adUnitId: _rc.yandexInterstitialId),
-      );
+      final loader = ya.InterstitialAdLoader();
+      _yandexInterstitial =
+          await loader.loadAd(adRequest: ya.AdRequest(adUnitId: _rc.yandexInterstitialId));
     } catch (_) {
       _yandexInterstitial = null;
     }
@@ -333,26 +319,20 @@ class AdService {
   Future<void> _showYandexRewarded({required Function() onReward}) async {
     if (_rc.yandexRewardedId.isEmpty) return;
     try {
-      final loader = await ya.RewardedAdLoader.create(
-        onAdLoaded: (ad) {
-          ad.setAdEventListener(
-            eventListener: ya.RewardedAdEventListener(
-              onAdShown: () {},
-              onAdFailedToShow: (error) => ad.destroy(),
-              onAdClicked: () {},
-              onAdDismissed: () => ad.destroy(),
-              onAdImpression: (data) {},
-              onRewarded: (reward) => onReward(),
-            ),
-          );
-          ad.show();
-        },
-        onAdFailedToLoad: (error) {},
+      final loader = ya.RewardedAdLoader();
+      final ad =
+          await loader.loadAd(adRequest: ya.AdRequest(adUnitId: _rc.yandexRewardedId));
+      ad.setAdEventListener(
+        eventListener: ya.RewardedAdEventListener(
+          onAdShown: () {},
+          onAdFailedToShow: (error) => ad.destroy(),
+          onAdClicked: () {},
+          onAdDismissed: () => ad.destroy(),
+          onAdImpression: (data) {},
+          onRewarded: (reward) => onReward(),
+        ),
       );
-      await loader.loadAd(
-        adRequestConfiguration:
-            ya.AdRequestConfiguration(adUnitId: _rc.yandexRewardedId),
-      );
+      await ad.show();
     } catch (_) {}
   }
 
