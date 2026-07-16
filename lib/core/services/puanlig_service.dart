@@ -50,4 +50,42 @@ class PuanligService {
       return null;
     }
   }
+
+  /// Fikstür — aktif ligin haftalık maç programı. hafta==0 ise sunucu o ligin
+  /// güncel/aktif haftasını döndürür (Android'deki fiksturGetir davranışı).
+  Future<FiksturVeri?> fetchFikstur({String? lig, int hafta = 0}) async {
+    final url = RemoteConfigService().puanligFiksturUrl;
+    if (url.isEmpty) return null;
+    try {
+      final resp = await _dio.get(url, queryParameters: {
+        if (lig != null && lig.isNotEmpty) 'lig': lig,
+        if (hafta > 0) 'hafta': hafta,
+      });
+      final data = resp.data;
+      if (data is! Map || data['basarili'] != true) return null;
+
+      final liglerJson = (data['ligler'] as List?) ?? const [];
+      final ligler = liglerJson
+          .whereType<Map>()
+          .map((e) => PuanLig.fromJson(e.cast<String, dynamic>()))
+          .toList();
+
+      // hafta/maxHafta/maclar "veri" altında ya da kökte gelebilir — ikisini de kolla.
+      final Map src = (data['veri'] is Map) ? (data['veri'] as Map) : data;
+      final maclarJson = (src['maclar'] as List?) ?? const [];
+      final maclar = maclarJson
+          .whereType<Map>()
+          .map((e) => FiksturMac.fromJson(e.cast<String, dynamic>(), url))
+          .toList();
+
+      return FiksturVeri(
+        hafta: (src['hafta'] as num?)?.toInt() ?? 1,
+        maxHafta: (src['maxHafta'] as num?)?.toInt() ?? 1,
+        ligler: ligler,
+        maclar: maclar,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

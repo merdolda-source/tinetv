@@ -34,6 +34,19 @@ class RemoteConfigService {
     'unity_game_id': '',
     'unity_interstitial_id': 'Interstitial_iOS',
     'unity_rewarded_id': 'Rewarded_iOS',
+    // ── Android tarzı çoklu-ağ (true/false) ─────────────────────────────────
+    // Öncelik: admob > yandex > unity (ilk açık olan "aktif ağ").
+    // Aktif ağ Unity ise: geçiş/ödüllü Unity'den; ama NATIVE ve AÇILIŞ (app
+    // open) OTOMATİK Yandex'ten gelir (ad_service resolver'ları hallediyor) —
+    // Unity ile çakışmadan. Android sistemiyle birebir aynı mantık.
+    'show_admob_ads': false,
+    'show_yandex_ads': false,
+    'show_unity_ads': true,
+    // Yandex iOS reklam birimleri (Boost app 19601807).
+    'yandex_interstitial_id': 'R-M-19601807-4',
+    'yandex_app_open_id':     'R-M-19601807-3',
+    'yandex_native_id':       'R-M-19601807-2', // Flutter'da native yok → adaptive inline banner
+    'yandex_rewarded_id':     'R-M-19601807-1',
     'categories_enabled': true,
     'categories_json': '[]',
     'ad_interstitial_wait_seconds': 5,
@@ -54,6 +67,8 @@ class RemoteConfigService {
     // Puan Durumu — kapalıyken sekme hiç gösterilmez.
     'puanlig_enabled': false,
     'puanlig_api_url': '',
+    // Fikstür adresi — boşsa puanlig.php ile aynı dizinde fikstur.php varsayılır.
+    'puanlig_fikstur_url': '',
     // CanlıSkor — kapalıyken sekme hiç gösterilmez.
     'canliskor_enabled': false,
     'canliskor_api_url': '',
@@ -83,6 +98,37 @@ class RemoteConfigService {
 
   String get m3uUrl => _rc.getString('m3u_url');
   String get adProvider => _rc.getString('ad_provider');
+
+  // ── Android tarzı çoklu-ağ ağ seçimi ──────────────────────────────────────
+  bool get showAdmobAds  => _rc.getBool('show_admob_ads');
+  bool get showYandexAds => _rc.getBool('show_yandex_ads');
+  bool get showUnityAds  => _rc.getBool('show_unity_ads');
+
+  String get yandexInterstitialId => _rc.getString('yandex_interstitial_id');
+  String get yandexAppOpenId      => _rc.getString('yandex_app_open_id');
+  String get yandexNativeId       => _rc.getString('yandex_native_id');
+  String get yandexRewardedId     => _rc.getString('yandex_rewarded_id');
+
+  /// Aktif ağ — ilk AÇIK olan (öncelik: admob > yandex > unity), yoksa 'none'.
+  String get activeNetwork {
+    if (showAdmobAds) return 'admob';
+    if (showYandexAds) return 'yandex';
+    if (showUnityAds) return 'unity';
+    return 'none';
+  }
+
+  /// Geçiş reklamı ağı = aktif ağ (admob / yandex / unity).
+  String get interstitialNetwork => activeNetwork;
+
+  /// Ödüllü reklam ağı = aktif ağ (iOS'ta Unity ödüllü çalışır).
+  String get rewardedNetwork => activeNetwork;
+
+  /// NATIVE ağı — Android'deki gibi: admob aktifse admob, aksi halde (unity/
+  /// none) OTOMATİK Yandex. Böylece Unity açıkken native Yandex'ten gelir.
+  String get nativeNetwork => activeNetwork == 'admob' ? 'admob' : 'yandex';
+
+  /// AÇILIŞ (app open) ağı — native ile aynı kural: admob→admob, aksi→yandex.
+  String get appOpenNetwork => activeNetwork == 'admob' ? 'admob' : 'yandex';
   bool get appOpenAdEnabled => _rc.getBool('ad_app_open_enabled');
   bool get interstitialEnabled => _rc.getBool('ad_interstitial_enabled');
   int get interstitialFrequency => _rc.getInt('ad_interstitial_frequency');
@@ -119,6 +165,16 @@ class RemoteConfigService {
 
   bool get puanligEnabled => _rc.getBool('puanlig_enabled');
   String get puanligApiUrl => _rc.getString('puanlig_api_url');
+
+  /// Fikstür adresi — RC'de 'puanlig_fikstur_url' tanımlıysa onu, değilse
+  /// puanlig.php ile AYNI dizindeki fikstur.php'yi kullanır (Android mantığı).
+  String get puanligFiksturUrl {
+    final override = _rc.getString('puanlig_fikstur_url');
+    if (override.isNotEmpty) return override;
+    final base = puanligApiUrl;
+    if (base.isEmpty) return '';
+    return Uri.parse(base).resolve('fikstur.php').toString();
+  }
 
   bool get canliskorEnabled => _rc.getBool('canliskor_enabled');
   String get canliskorApiUrl => _rc.getString('canliskor_api_url');
