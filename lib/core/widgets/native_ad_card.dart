@@ -56,6 +56,7 @@ class _NativeAdCardState extends State<NativeAdCard> {
 
   void _loadAdmob() {
     if (_rc.admobNativeId.isEmpty) {
+      debugPrint('🔴 ADMOB NATIVE: admobNativeId BOŞ — reklam istenmedi.');
       setState(() => _failed = true);
       return;
     }
@@ -83,6 +84,8 @@ class _NativeAdCardState extends State<NativeAdCard> {
           setState(() => _loaded = true);
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('🔴 ADMOB NATIVE FAIL: code=${error.code} '
+              'domain=${error.domain} msg=${error.message}');
           ad.dispose();
           if (!mounted) return;
           setState(() {

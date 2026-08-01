@@ -60,8 +60,19 @@ class AdService {
     // AdMob — yalnızca açıksa başlat.
     if (_rc.showAdmobAds) {
       try {
-        await MobileAds.instance.initialize();
-      } catch (_) {}
+        final status = await MobileAds.instance.initialize();
+        // Hangi mediation/adapter'ın hazır olduğunu ve durumunu gösterir.
+        status.adapterStatuses.forEach((name, s) {
+          debugPrint('🟢 ADMOB ADAPTER: $name → state=${s.state} '
+              'desc=${s.description}');
+        });
+        debugPrint('🟢 ADMOB INIT OK · activeNetwork=${_rc.activeNetwork} '
+            'interstitialId=${_rc.admobInterstitialId} '
+            'appOpenId=${_rc.admobAppOpenId} nativeId=${_rc.admobNativeId} '
+            'rewardedId=${_rc.admobRewardedId}');
+      } catch (e) {
+        debugPrint('🔴 ADMOB INIT FAIL: $e');
+      }
     }
     // Unity — açıksa başlat.
     if (_rc.showUnityAds) {
@@ -91,7 +102,11 @@ class AdService {
         request: const AdRequest(),
         adLoadCallback: AppOpenAdLoadCallback(
           onAdLoaded: (ad) => _admobAppOpen = ad,
-          onAdFailedToLoad: (error) => _admobAppOpen = null,
+          onAdFailedToLoad: (error) {
+            debugPrint('🔴 ADMOB APPOPEN FAIL: code=${error.code} '
+                'domain=${error.domain} msg=${error.message}');
+            _admobAppOpen = null;
+          },
         ),
       );
     } else if (net == 'yandex') {
@@ -164,7 +179,11 @@ class AdService {
         request: const AdRequest(),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) => _admobInterstitial = ad,
-          onAdFailedToLoad: (error) => _admobInterstitial = null,
+          onAdFailedToLoad: (error) {
+            debugPrint('🔴 ADMOB INTERSTITIAL FAIL: code=${error.code} '
+                'domain=${error.domain} msg=${error.message}');
+            _admobInterstitial = null;
+          },
         ),
       );
     } else if (net == 'yandex') {
@@ -293,7 +312,10 @@ class AdService {
             );
             ad.show(onUserEarnedReward: (_, reward) => onReward());
           },
-          onAdFailedToLoad: (_) {},
+          onAdFailedToLoad: (error) {
+            debugPrint('🔴 ADMOB REWARDED FAIL: code=${error.code} '
+                'domain=${error.domain} msg=${error.message}');
+          },
         ),
       );
     } else if (net == 'yandex') {
