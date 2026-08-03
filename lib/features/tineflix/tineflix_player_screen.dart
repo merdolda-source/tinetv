@@ -23,6 +23,17 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
   int _episodeWatchCount = 0;
   bool _switchingEpisode = false;
 
+  // Video artık CDN'den DOĞRUDAN oynatılıyor; bilet (Cookie/Referer/UA)
+  // gelmeden ilk bölüm kurulmaz. Bilet gelene kadar spinner gösterilir.
+  DramaflixTicket? _ticket;
+  bool _preparing = true;
+
+  /// CDN'e (cdn.dramaflix.cc) giden video/altyazı isteklerinin başlıkları.
+  /// Bilet varsa onun Cookie/Referer/UA'sı; yoksa yalnızca yedek tarayıcı UA.
+  Map<String, String> get _playbackHeaders =>
+      _ticket?.headers ??
+      const {'User-Agent': DramaflixService.cdnUserAgent};
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +74,18 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
       }
     });
 
+    _prepareAndPlay();
+  }
+
+  // Önce CDN biletini al, sonra ilk bölümü kur. Bilet gelmezse yine de
+  // yedek UA ile denenir (bazı içerikler cookie'siz de açılabilir).
+  Future<void> _prepareAndPlay() async {
+    final ticket = await _service.fetchTicket();
+    if (!mounted) return;
+    setState(() {
+      _ticket = ticket;
+      _preparing = false;
+    });
     _loadEpisode(_currentIndex);
   }
 
@@ -81,20 +104,22 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
             return BetterPlayerSubtitlesSource(
               type: BetterPlayerSubtitlesSourceType.network,
               name: ad,
-              urls: [_service.proxiedSubtitleUrl(s.url)],
-              headers: const {'User-Agent': DramaflixService.userAgent},
+              // Altyazı da CDN'de — ham URL, bilet başlıklarıyla doğrudan çekilir.
+              urls: [s.url],
+              headers: _playbackHeaders,
               selectedByDefault: preferred != null && s.url == preferred.url,
             );
           }).toList();
 
     final dataSource = BetterPlayerDataSource(
       BetterPlayerDataSourceType.network,
-      _service.proxiedStreamUrl(ep.url),
+      // Ham CDN m3u8'i DOĞRUDAN oynat (artık PHP proxy yok).
+      ep.url,
       liveStream: false,
-      // Oynatıcı, video/altyazı akışını kendi ağ isteğiyle çekiyor — bu
-      // istek DramaflixService'in Dio istemcisinden geçmiyor, o yüzden
-      // User-Agent'ı burada ayrıca vermek zorundayız (bkz. DramaflixService.userAgent).
-      headers: const {'User-Agent': DramaflixService.userAgent},
+      videoFormat: BetterPlayerVideoFormat.hls,
+      // Oynatıcı akışı kendi ağ isteğiyle çekiyor; CDN önündeki Cloudflare'i
+      // geçmek için bilet başlıklarını (Cookie/Referer/tarayıcı-UA) taşır.
+      headers: _playbackHeaders,
       // HLS/DASH içindeki gömülü ses/altyazı/kalite parçalarını menüye getir.
       useAsmsSubtitles: true,
       useAsmsAudioTracks: true,
@@ -152,7 +177,7 @@ class _TineflixPlayerScreenState extends State<TineflixPlayerScreen> {
                 child: BetterPlayer(controller: _controller),
               ),
             ),
-            if (_switchingEpisode)
+            if (_switchingEpisode || _preparing)
               const Center(child: CircularProgressIndicator(color: Color(0xFFE50914))),
             Positioned(
               top: 8,
