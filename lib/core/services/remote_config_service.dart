@@ -78,6 +78,48 @@ class RemoteConfigService {
     'haber_api_url': '',
     // Listelere kaç öğede bir native reklam gömülsün (Android ile aynı anahtar).
     'grid_native_ad_interval': 10,
+
+    // ── ANA KİLİT: login ────────────────────────────────────────────────────
+    // true  → İNCELEME MODU: SADECE M3U login/giriş ekranı görünür. Tüm kartlar,
+    //         alt menü sekmeleri ve content_json içerikleri GİZLENİR; kanal bile
+    //         otomatik yüklenmez. (App Store/Play inceleme durumu.)
+    // false → NORMAL MOD: RC'de açık tüm içerikler görünür, serbestçe yönetilir.
+    // Varsayılan true — RC hiç gelmezse/ilk açılışta güvenli taraf (sadece login).
+    'login': true,
+
+    // ── Çoklu kaynak JSON'u (birden fazla M3U + resolve) ─────────────────────
+    // Ana Sayfa'ya kart olarak eklenir. Her öğe:
+    //   {"type":"m3u"|"resolve","title":"...","url":"...",
+    //    "embed_base":"...","embed_only":true/false}
+    // type=m3u     → o URL'den kanal listesi ekranı.
+    // type=resolve → resolver'lı oynatıcı (Boss/Patron ile aynı altyapı).
+    // login=true iken hiçbiri görünmez.
+    'content_json': '[]',
+
+    // ── Premium Spor: Boss Sports (premium listesinden BAĞIMSIZ, RC ile aç/kapa) ──
+    // Domain APK'da YOK — sadece Firebase'ten gelir. Boş/false ise sekme çıkmaz.
+    // TEK temel adres yeter: matches/channels/watch hepsi buradan türetilir
+    // (örn. https://bosssports1022.com). Domain dönerse sadece bunu değiştir.
+    'boss_section_show': false,
+    'boss_section_title': 'Boss Sports',
+    'boss_section_base': '',
+
+    // ── Premium Spor: Patron / Taraftarium (RC ile aç/kapa) ──────────────────
+    'patron_section_show': false,
+    'patron_section_title': 'Taraftarium',
+    'patron_section_url': '', // maç listesi JSON (matches.php/channels.php)
+    // embedOnly bölümün KENDİ embed domaini (örn. https://patrongol34.cfd).
+    'patron_section_embed_base': '',
+    'patron_poster': '',
+
+    // Resolver + embed altyapısı (Android ile aynı anahtarlar). Hepsi RC'den;
+    // domain rotasyonunda sadece bunları değiştir, APK gerekmez.
+    'patron_embed_base': '', // ch.html embed ön-yüz domaini
+    'patron_referer': '',    // CDN referer override (boşsa embed_base kullanılır)
+    'patron_resolver': '',   // resolver.php adresi (…?id=… ile çağrılır)
+    'taraftarium_site': '',  // resolver'a &site= ile geçer (site rotasyonu)
+    'resolver_url': '',      // resolver.php tabanını taşımak için tek nokta
+    'patron_embed': true,    // resolver tutmazsa embed yedeğine düşülsün mü
   };
 
   Future<void> initialize() async {
@@ -184,6 +226,50 @@ class RemoteConfigService {
   String get haberApiUrl => _rc.getString('haber_api_url');
 
   int get gridNativeAdInterval => _rc.getInt('grid_native_ad_interval');
+
+  /// Ana kilit. true → sadece M3U login ekranı (inceleme modu); her şey gizli.
+  bool get loginGate => _rc.getBool('login');
+
+  /// Çoklu kaynak JSON'u (birden fazla M3U + resolve). Ana Sayfa kartları.
+  String get contentSourcesJson => _rc.getString('content_json');
+
+  // ── Premium Spor: Boss ─────────────────────────────────────────────────────
+  bool get bossSectionShow => _rc.getBool('boss_section_show');
+  String get bossSectionTitle {
+    final t = _rc.getString('boss_section_title').trim();
+    return t.isEmpty ? 'Boss Sports' : t;
+  }
+
+  /// Boss temel adresi, scheme://host'a indirgenmiş (Android ile aynı normalizasyon).
+  /// Ne yapıştırılırsa yapıştırılsın (http yok, sonda /api/matches vb.) doğru türetir.
+  String get bossSectionBase {
+    var b = _rc.getString('boss_section_base').trim();
+    if (b.isEmpty) return '';
+    if (!b.toLowerCase().startsWith('http')) b = 'https://$b';
+    try {
+      final u = Uri.parse(b);
+      return '${u.scheme}://${u.host}';
+    } catch (_) {
+      while (b.endsWith('/')) {
+        b = b.substring(0, b.length - 1);
+      }
+      return b;
+    }
+  }
+
+  // ── Premium Spor: Patron / Taraftarium ─────────────────────────────────────
+  bool get patronSectionShow => _rc.getBool('patron_section_show');
+  String get patronSectionTitle {
+    final t = _rc.getString('patron_section_title').trim();
+    return t.isEmpty ? 'Taraftarium' : t;
+  }
+
+  String get patronSectionUrl => _rc.getString('patron_section_url').trim();
+  String get patronSectionEmbedBase =>
+      _rc.getString('patron_section_embed_base').trim();
+
+  /// Resolver/native oynatamazsa embed (ch.html/watch) yedeğine düşülsün mü?
+  bool get patronEmbedFallback => _rc.getBool('patron_embed');
 
   String getString(String key) => _rc.getString(key);
 }

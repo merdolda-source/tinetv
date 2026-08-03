@@ -2,6 +2,31 @@ import 'package:dio/dio.dart';
 import '../models/series_model.dart';
 import 'remote_config_service.dart';
 
+/// CDN oynatma bileti — dramaflix_api.php `?r=ticket`'ten gelir.
+/// Video artık SUNUCUDAN proxy'lenmiyor; cihaz CDN'den (cdn.dramaflix.cc)
+/// DOĞRUDAN oynatıyor. Cloudflare sunucu IP'lerini blokluyor ama gerçek
+/// mobil cihazın IP'si geçiyor. Bilet, cihazın CDN'e giderken taşıması
+/// gereken Cookie (dfexp/dfsig) + Referer + tarayıcı User-Agent'ını verir.
+class DramaflixTicket {
+  final String cookie;
+  final String referer;
+  final String userAgent;
+  const DramaflixTicket({
+    required this.cookie,
+    required this.referer,
+    required this.userAgent,
+  });
+
+  /// Oynatıcının (better_player) video/altyazı akışını çekerken kullanacağı
+  /// HTTP başlıkları. Boş alanlar eklenmez.
+  Map<String, String> get headers => {
+        'User-Agent':
+            userAgent.isNotEmpty ? userAgent : DramaflixService.cdnUserAgent,
+        if (referer.isNotEmpty) 'Referer': referer,
+        if (cookie.isNotEmpty) 'Cookie': cookie,
+      };
+}
+
 /// dramaflix_api.php ile konuşur (Android uygulamasıyla aynı backend).
 /// PHP tarafı sadece User-Agent'ında "TineTV" geçen istekleri kabul eder —
 /// normal bir tarayıcıdan erişilirse 404 döner.
@@ -10,11 +35,17 @@ class DramaflixService {
   factory DramaflixService() => _instance;
   DramaflixService._();
 
-  // dramaflix_api.php TÜM route'larda (r=api, r=hls, r=seg, r=sub) bu
-  // User-Agent'ı arıyor — sadece JSON istekleri değil, oynatıcının
-  // video/altyazı akışı için attığı istekler de bunu taşımak zorunda,
-  // yoksa sunucu onlara da 404 döner (video "Video can't be played" olur).
+  // JSON API (r=api, r=ticket) istekleri bu User-Agent'ı taşımak zorunda —
+  // PHP tarafı "TineTV" geçmeyen istekleri 404'ler.
   static const userAgent = 'TineTV-iOS/1.0';
+
+  // CDN'e DOĞRUDAN gidilen (video/altyazı) isteklerde kullanılan tarayıcı
+  // User-Agent'ı. Normalde bilet (`?r=ticket`) kendi user_agent'ını verir;
+  // bilet gelmezse bu yedek devreye girer. Buraya "TineTV" YAZMA — CDN'in
+  // önündeki Cloudflare gerçek bir tarayıcı UA'sı bekler.
+  static const cdnUserAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
   final Dio _dio = Dio(BaseOptions(
     headers: {'User-Agent': userAgent},
@@ -81,14 +112,24 @@ class DramaflixService {
     }
   }
 
-  // CDN, cookie tabanlı korumalı olduğu için bölüm/altyazı linkleri doğrudan
-  // oynatılamaz — PHP tarafındaki r=hls / r=sub proxy'sinden geçirilir
-  // (dfexp/dfsig çerezini sunucu ekliyor).
-  String proxiedStreamUrl(String cdnUrl) {
-    return '$_baseUrl?r=hls&u=${Uri.encodeQueryComponent(cdnUrl)}';
-  }
-
-  String proxiedSubtitleUrl(String cdnUrl) {
-    return '$_baseUrl?r=sub&u=${Uri.encodeQueryComponent(cdnUrl)}';
+  /// CDN oynatma bileti (Cookie + Referer + UA) — `?r=ticket`.
+  /// Oynatıcı bölüm/altyazı URL'lerini (cdn.dramaflix.cc) DOĞRUDAN çekerken
+  /// bu bileti başlık olarak kullanır. Sunucu bileti ~55 dk önbelleğe alır,
+  /// domain değişirse yalnızca PHP tarafındaki DFX_BASE/DFX_CDN değişir —
+  /// uygulamaya (bu koda) dokunmaya gerek yoktur.
+  Future<DramaflixTicket?> fetchTicket() async {
+    if (_baseUrl.isEmpty) return null;
+    try {
+      final resp = await _dio.get(_baseUrl, queryParameters: {'r': 'ticket'});
+      final data = resp.data;
+      if (data is! Map) return null;
+      return DramaflixTicket(
+        cookie: data['cookie'] as String? ?? '',
+        referer: data['referer'] as String? ?? '',
+        userAgent: data['user_agent'] as String? ?? '',
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }
