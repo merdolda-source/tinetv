@@ -35,7 +35,7 @@ class PremiumResolver {
   /// tek RC değeriyle tüm resolver adresi taşınabilir.
   static String resolverHttpUrl(String u) {
     if (u.startsWith('tineresolve://')) {
-      u = 'https://' + u.substring('tineresolve://'.length);
+      u = 'https://${u.substring('tineresolve://'.length)}';
     }
     final rcBase = RemoteConfigService().getString('resolver_url').trim();
     if (rcBase.isNotEmpty && u.contains('resolver.php')) {
