@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/services/remote_config_service.dart';
 import '../home/home_screen.dart';
-import '../tineflix/tineflix_screen.dart';
-import '../sites/sites_screen.dart';
-import '../film/film_screen.dart';
 import '../puandurumu/puandurumu_screen.dart';
 import '../canliskor/canliskor_screen.dart';
 import '../canliskor/canliskor_controller.dart';
-import '../haberler/haberler_screen.dart';
 
-/// Alt gezinme kabuğu. TineFlix/Siteler Remote Config'ten kapalıysa (varsayılan)
-/// hiç sekme çubuğu gösterilmez ve uygulama tıpkı öncekiyle aynı şekilde
-/// doğrudan M3U ekranını (HomeScreen) açar — mevcut davranış korunur.
+/// Alt gezinme kabuğu — SADE menü.
+///
+/// Alt menüde yalnızca: Ana Sayfa + (RC açıksa) Canlı Skor + (RC açıksa) Puan
+/// Durumu bulunur. Boss / Taraftarium / TineFlix / Filmler / Haberler / Siteler
+/// artık alt sekme DEĞİL — Ana Sayfa'da LİSTE (kart) olarak açılır (bkz.
+/// HomeScreen). Böylece çubuk hiç kalabalıklaşmaz.
+///
+/// M3U "formalite": hiç kart yok + m3u_url boşsa Ana Sayfa yine birebir eski
+/// M3U giriş ekranını gösterir; her şey kapalıyken alt çubuk hiç çıkmaz.
 class MainNavScreen extends StatefulWidget {
   const MainNavScreen({super.key});
 
@@ -27,17 +29,21 @@ class _MainNavScreenState extends State<MainNavScreen> {
   Widget build(BuildContext context) {
     final rc = RemoteConfigService();
 
+    // ANA KİLİT: login=true → İNCELEME MODU. Alt menü YOK, hiç sekme yok;
+    // yalnızca Ana Sayfa (o da HomeScreen içinde sadece M3U login ekranını
+    // gösterir). Tüm içerikler gizli.
+    if (rc.loginGate) {
+      return const HomeScreen();
+    }
+
+    // SADE alt menü: Ana Sayfa + (açıksa) Canlı Skor + (açıksa) Puan Durumu.
+    // Diğer tüm özellikler Ana Sayfa'da kart olarak açılır.
     final tabs = <_TabItem>[
-      const _TabItem('Kanallar', Icons.live_tv, HomeScreen()),
-      if (rc.tineflixEnabled)
-        const _TabItem('TineFlix', Icons.movie_creation_outlined, TineflixScreen()),
-      if (rc.haberlerEnabled) const _TabItem('Haberler', Icons.article, HaberlerScreen()),
-      if (rc.filmEnabled) const _TabItem('Filmler', Icons.local_movies, FilmScreen()),
+      const _TabItem('Ana Sayfa', Icons.home_rounded, HomeScreen()),
       if (rc.canliskorEnabled)
         const _TabItem('Canlı Skor', Icons.sports_soccer, CanliskorScreen()),
       if (rc.puanligEnabled)
         const _TabItem('Puan Durumu', Icons.emoji_events, PuanDurumuScreen()),
-      if (rc.sitesEnabled) const _TabItem('Siteler', Icons.public, SitesScreen()),
     ];
 
     if (_index >= tabs.length) _index = 0;
