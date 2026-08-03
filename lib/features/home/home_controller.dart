@@ -26,6 +26,13 @@ class HomeController extends GetxController {
   }
 
   Future<void> _checkAndLoad() async {
+    // login=true → İNCELEME KİLİDİ: hiçbir şey otomatik yüklenmez, yalnızca
+    // M3U login/giriş ekranı gösterilir.
+    if (_rc.loginGate) {
+      isLoading.value = false;
+      hasUrl.value = false;
+      return;
+    }
     final remoteUrl = _rc.m3uUrl;
     if (remoteUrl.isNotEmpty) {
       currentUrl.value = remoteUrl;

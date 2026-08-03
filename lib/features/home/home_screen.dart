@@ -6,6 +6,22 @@ import '../channel_detail/channel_detail_screen.dart';
 import '../../core/services/ad_service.dart';
 import '../../core/services/ad_free_service.dart';
 import '../../core/services/remote_config_service.dart';
+// Ana Sayfa listesinden (kart) açılan özellik ekranları.
+import '../premium/premium_spor_screen.dart';
+import '../tineflix/tineflix_screen.dart';
+import '../film/film_screen.dart';
+import '../haberler/haberler_screen.dart';
+import '../sites/sites_screen.dart';
+import 'm3u_list_screen.dart';
+import '../../core/models/content_source_model.dart';
+
+/// Ana Sayfa'da kart olarak görünen özellik (alt menüden çıkarılanlar).
+class _Feature {
+  final String title;
+  final IconData icon;
+  final Widget Function() open;
+  const _Feature(this.title, this.icon, this.open);
+}
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -52,14 +68,132 @@ class HomeScreen extends StatelessWidget {
           );
         }
 
-        // URL giriş ekranı
-        if (!controller.hasUrl.value) {
+        final features = _enabledFeatures();
+
+        // M3U "FORMALİTE" KORUNDU: hiç özellik kartı yok + M3U linki yoksa
+        // ekran birebir eski M3U giriş ekranıdır (App Store onay durumu).
+        if (features.isEmpty && !controller.hasUrl.value) {
           return _buildUrlInputScreen(controller);
         }
 
-        // Kanal listesi
-        return _buildChannelList(controller);
+        // Aksi halde LİSTE yapısı: üstte özellik kartları şeridi, altta ya
+        // kanal listesi ya da (link yoksa) M3U giriş ekranı.
+        return Column(
+          children: [
+            if (features.isNotEmpty) _featureStrip(features),
+            Expanded(
+              child: controller.hasUrl.value
+                  ? _buildChannelList(controller)
+                  : _buildUrlInputScreen(controller),
+            ),
+          ],
+        );
       }),
+    );
+  }
+
+  /// RC'de açık olan özellikleri (alt menüden çıkarılanlar) Ana Sayfa kartı
+  /// olarak toplar. Boss/Patron yalnızca adresi de doluysa eklenir.
+  List<_Feature> _enabledFeatures() {
+    final rc = RemoteConfigService();
+
+    // ANA KİLİT: login=true iken hiçbir içerik kartı gösterilmez.
+    if (rc.loginGate) return const [];
+
+    final list = <_Feature>[];
+
+    // 1) Çoklu kaynak (content_json) — birden fazla M3U + resolve, RC'den yönetilir.
+    for (final s in ContentSource.parseList(rc.contentSourcesJson)) {
+      if (s.isM3u) {
+        final t = s.title.isEmpty ? 'Liste' : s.title;
+        list.add(_Feature(t, Icons.playlist_play, () => M3uListScreen(title: t, url: s.url)));
+      } else {
+        // resolve → resolver'lı oynatıcı (Boss/Patron ile aynı altyapı).
+        final t = s.title.isEmpty ? 'Canlı Yayın' : s.title;
+        list.add(_Feature(t, Icons.live_tv, () => PremiumSporScreen(
+              title: t,
+              urls: [s.url],
+              embedOnly: s.embedOnly,
+              sectionEmbedBase: s.embedOnly ? s.embedBase : '',
+              bossEmbedBase: s.embedOnly ? '' : s.embedBase,
+            )));
+      }
+    }
+
+    // 2) Adlı bölümler (geriye dönük): Boss / Patron / TineFlix / Filmler / …
+    final bossBase = rc.bossSectionBase;
+    if (rc.bossSectionShow && bossBase.isNotEmpty) {
+      list.add(_Feature(rc.bossSectionTitle, Icons.sports, () => PremiumSporScreen(
+            title: rc.bossSectionTitle,
+            urls: ['$bossBase/api/matches', '$bossBase/api/channels'],
+            bossEmbedBase: '$bossBase/?channel=',
+          )));
+    }
+    final patronUrl = rc.patronSectionUrl;
+    if (rc.patronSectionShow && patronUrl.isNotEmpty) {
+      list.add(_Feature(rc.patronSectionTitle, Icons.stadium, () => PremiumSporScreen(
+            title: rc.patronSectionTitle,
+            urls: [patronUrl],
+            embedOnly: true,
+            sectionEmbedBase: rc.patronSectionEmbedBase,
+          )));
+    }
+    if (rc.tineflixEnabled) {
+      list.add(_Feature('TineFlix', Icons.movie_creation_outlined, () => const TineflixScreen()));
+    }
+    if (rc.filmEnabled) {
+      list.add(_Feature('Filmler', Icons.local_movies, () => const FilmScreen()));
+    }
+    if (rc.haberlerEnabled) {
+      list.add(_Feature('Haberler', Icons.article, () => const HaberlerScreen()));
+    }
+    if (rc.sitesEnabled) {
+      list.add(_Feature('Siteler', Icons.public, () => const SitesScreen()));
+    }
+    return list;
+  }
+
+  /// Yatay kaydırmalı özellik kartları şeridi (Android ana ekran kartları gibi).
+  Widget _featureStrip(List<_Feature> features) {
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        itemCount: features.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final f = features[i];
+          return GestureDetector(
+            onTap: () => Get.to(f.open),
+            child: Container(
+              width: 108,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0x22E50914)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(f.icon, color: const Color(0xFFE50914), size: 26),
+                  Text(
+                    f.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
