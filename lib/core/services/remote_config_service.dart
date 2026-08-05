@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 
@@ -95,6 +96,36 @@ class RemoteConfigService {
     // type=resolve → resolver'lı oynatıcı (Boss/Patron ile aynı altyapı).
     // login=true iken hiçbiri görünmez.
     'content_json': '[]',
+
+    // ── M3U listeleri (Android ile AYNI anahtar: m3u_playlists) ───────────────
+    // {"playlists":[{"name":"Spor","url":"https://…","enabled":true}]}
+    // Ana Sayfa'da kart listesi olur; tıklayınca o playlist'in kanalları açılır.
+    'm3u_playlists': '{"playlists":[]}',
+
+    // ── Premium liste (Android ile AYNI anahtar: premium_sites) ───────────────
+    // [{"title":"PREMIUM","url":"https://…/matches.php"}]
+    'premium_sites': '[]',
+
+    // ── Mahsun Sports (SUNUCUSUZ) — Android ile AYNI anahtarlar: mahsun_section_* ──
+    // Uygulama script4.js'i CİHAZDA okuyup m3u8'i referer+origin ile oynatır.
+    // Domain dönerse SADECE mahsun_section_base / _data güncellenir — APK gerekmez.
+    'mahsun_section_show': false,          // true/false aç-kapa
+    'mahsun_section_title': 'Canlı Spor',  // karttaki başlık
+    'mahsun_section_base': '',             // örn. https://mahsunsports50.xyz
+    'mahsun_section_data': '',             // script4.js adresi (BOŞSA siteden bulunur)
+    // Eski (geriye-uyumlu) mahsun_* anahtarları — yeni _section_ boşsa okunur.
+    'mahsun_show': false,
+    'mahsun_title': 'Canlı Spor',
+    'mahsun_site': '',
+    'mahsun_data': '',
+
+    // ── Zeus TV (SUNUCUSUZ) — Android ile AYNI anahtarlar ─────────────────────
+    // Tek adres yeter (zeus_base); İKİ bölüm: Günün Maçları (futbol) + Canlı TV.
+    'zeus_base': '',                       // örn. https://zeustv268.cfd
+    'zeus_matches_show': false,
+    'zeus_matches_title': 'Günün Maçları',
+    'zeus_channels_show': false,
+    'zeus_channels_title': 'Canlı TV',
 
     // ── Premium Spor: Boss Sports (premium listesinden BAĞIMSIZ, RC ile aç/kapa) ──
     // Domain APK'da YOK — sadece Firebase'ten gelir. Boş/false ise sekme çıkmaz.
@@ -232,6 +263,87 @@ class RemoteConfigService {
 
   /// Çoklu kaynak JSON'u (birden fazla M3U + resolve). Ana Sayfa kartları.
   String get contentSourcesJson => _rc.getString('content_json');
+
+  // ── Mahsun Sports (sunucusuz) — Android ile AYNI: mahsun_section_* ──────────
+  // Yeni _section_ anahtarları önceliklidir; boşsa eski mahsun_* okunur.
+  bool get mahsunShow =>
+      _rc.getBool('mahsun_section_show') || _rc.getBool('mahsun_show');
+  String get mahsunTitle {
+    var t = _rc.getString('mahsun_section_title').trim();
+    if (t.isEmpty) t = _rc.getString('mahsun_title').trim();
+    return t.isEmpty ? 'Canlı Spor' : t;
+  }
+
+  String get mahsunSite {
+    final a = _rc.getString('mahsun_section_base').trim();
+    return a.isNotEmpty ? a : _rc.getString('mahsun_site').trim();
+  }
+
+  String get mahsunData {
+    final a = _rc.getString('mahsun_section_data').trim();
+    return a.isNotEmpty ? a : _rc.getString('mahsun_data').trim();
+  }
+
+  // ── Zeus TV (sunucusuz) — Android ile AYNI anahtarlar ──────────────────────
+  String get zeusBase => _rc.getString('zeus_base').trim();
+  bool get zeusMatchesShow => _rc.getBool('zeus_matches_show');
+  String get zeusMatchesTitle {
+    final t = _rc.getString('zeus_matches_title').trim();
+    return t.isEmpty ? 'Günün Maçları' : t;
+  }
+
+  bool get zeusChannelsShow => _rc.getBool('zeus_channels_show');
+  String get zeusChannelsTitle {
+    final t = _rc.getString('zeus_channels_title').trim();
+    return t.isEmpty ? 'Canlı TV' : t;
+  }
+
+  // ── M3U listeleri (Android m3u_playlists paritesi) ─────────────────────────
+  // {"playlists":[{"name","url","enabled"}]} → [{'name':..,'url':..}] (aktif olanlar).
+  List<Map<String, String>> get m3uPlaylists {
+    final raw = _rc.getString('m3u_playlists').trim();
+    if (raw.isEmpty) return const [];
+    try {
+      final data = jsonDecode(raw);
+      final List arr = (data is Map && data['playlists'] is List)
+          ? data['playlists'] as List
+          : (data is List ? data : const []);
+      final out = <Map<String, String>>[];
+      for (final e in arr.whereType<Map>()) {
+        final enabled = e['enabled'] == null || e['enabled'] == true;
+        final url = (e['url'] ?? '').toString().trim();
+        if (!enabled || url.isEmpty) continue;
+        var name = (e['name'] ?? '').toString().trim();
+        if (name.isEmpty) name = 'Liste';
+        out.add({'name': name, 'url': url});
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // ── Premium liste (Android premium_sites paritesi) ─────────────────────────
+  // [{"title","url"}] → [{'title':..,'url':..}].
+  List<Map<String, String>> get premiumSites {
+    final raw = _rc.getString('premium_sites').trim();
+    if (raw.isEmpty) return const [];
+    try {
+      final data = jsonDecode(raw);
+      if (data is! List) return const [];
+      final out = <Map<String, String>>[];
+      for (final e in data.whereType<Map>()) {
+        final url = (e['url'] ?? '').toString().trim();
+        if (url.isEmpty) continue;
+        var title = (e['title'] ?? '').toString().trim();
+        if (title.isEmpty) title = 'PREMIUM';
+        out.add({'title': title, 'url': url});
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
 
   // ── Premium Spor: Boss ─────────────────────────────────────────────────────
   bool get bossSectionShow => _rc.getBool('boss_section_show');

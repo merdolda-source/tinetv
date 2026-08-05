@@ -8,7 +8,10 @@ class M3uService {
     if (url.isEmpty) return [];
 
     try {
-      final response = await _dio.get(url);
+      final response = await _dio.get(
+        url,
+        options: Options(responseType: ResponseType.plain),
+      );
       return _parseM3u(response.data as String);
     } catch (e) {
       return [];
@@ -16,9 +19,19 @@ class M3uService {
   }
 
   List<Channel> _parseM3u(String content) {
+    // Android M3UParser paritesi: kompakt (tek satır) M3U'ları normalize et —
+    // #EXTINF / #EXTVLCOPT önüne satır sonu koy ki her etiket ayrı satır olsun.
+    content = content
+        .replaceAll('#EXTINF', '\n#EXTINF')
+        .replaceAll('#EXTVLCOPT', '\n#EXTVLCOPT');
+
     final lines = content.split('\n');
     final channels = <Channel>[];
-    String? name, logo, group, tvgId;
+    String? name, logo, group, tvgId, referer, origin, userAgent;
+
+    void reset() {
+      name = logo = group = tvgId = referer = origin = userAgent = null;
+    }
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
@@ -27,17 +40,27 @@ class M3uService {
         logo = _extract(line, 'tvg-logo');
         group = _extract(line, 'group-title');
         tvgId = _extract(line, 'tvg-id');
-      } else if (line.startsWith('http') && name != null) {
+      } else if (line.startsWith('#EXTVLCOPT:http-referrer=')) {
+        referer = line.substring('#EXTVLCOPT:http-referrer='.length).trim();
+      } else if (line.startsWith('#EXTVLCOPT:http-user-agent=')) {
+        userAgent = line.substring('#EXTVLCOPT:http-user-agent='.length).trim();
+      } else if (line.startsWith('#EXTVLCOPT:http-origin=')) {
+        origin = line.substring('#EXTVLCOPT:http-origin='.length).trim();
+      } else if ((line.startsWith('http://') || line.startsWith('https://')) &&
+          name != null) {
         channels.add(
           Channel(
-            name: name,
+            name: name!,
             url: line,
             logo: logo,
             group: group,
             tvgId: tvgId,
+            referer: referer,
+            origin: origin,
+            userAgent: userAgent,
           ),
         );
-        name = logo = group = tvgId = null;
+        reset();
       }
     }
     return channels;
