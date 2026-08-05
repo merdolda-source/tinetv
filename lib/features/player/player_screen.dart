@@ -1,7 +1,9 @@
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import '../../core/models/channel_model.dart';
+import 'cloudflare_player_screen.dart';
 
 /// Ana kanal oynatıcı — Android PlayerActivity paritesi (tek cihaz oynatma):
 ///   • Referer / Origin / User-Agent başlıkları (#EXTVLCOPT'ten)  → 403'leri aşar
@@ -121,6 +123,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _controller.setupDataSource(_dataSource());
   }
 
+  // Yayın açılmıyorsa (çoğu zaman Cloudflare "managed challenge" / 403), doğrulamayı
+  // WebView'de çözüp aynı WebView içinde oynatan CF oynatıcısına geç. Android
+  // CloudflareCookieHelper mantığının karşılığı. Get.off → başarısız player'ı değiştirir.
+  void _cloudflareAc() {
+    final ua = (widget.channel.userAgent ?? '').trim();
+    Get.off(() => CloudflarePlayerScreen(
+          url: widget.channel.url,
+          title: widget.channel.name,
+          referer: widget.channel.referer ?? '',
+          userAgent: ua.isNotEmpty ? ua : _defaultUa,
+        ));
+  }
+
   @override
   void dispose() {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -157,6 +172,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     label: const Text('Tekrar Dene',
                         style: TextStyle(color: Colors.white)),
+                  ),
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: _cloudflareAc,
+                    icon: const Icon(Icons.verified_user,
+                        color: Color(0xFFE50914), size: 18),
+                    label: const Text('Cloudflare Doğrulaması ile Aç',
+                        style: TextStyle(color: Color(0xFFE50914))),
                   ),
                 ],
               )
