@@ -61,54 +61,76 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       body: Obx(() {
-        // Loading
         if (controller.isLoading.value) {
           return const Center(
             child: CircularProgressIndicator(color: Color(0xFFE50914)),
           );
         }
+        final rc = RemoteConfigService();
 
-        final features = _enabledFeatures();
-
-        // M3U "FORMALİTE" KORUNDU: hiç özellik kartı yok + M3U linki yoksa
-        // ekran birebir eski M3U giriş ekranıdır (App Store onay durumu).
-        if (features.isEmpty && !controller.hasUrl.value) {
-          return _buildUrlInputScreen(controller);
+        // ── İNCELEME MODU (login=true): SADECE M3U giriş ekranı (formalite).
+        //    Reviewer link girip "Kanalları Yükle" derse kanal listesi açılır.
+        if (rc.loginGate) {
+          return controller.hasUrl.value
+              ? _buildChannelList(controller)
+              : _buildUrlInputScreen(controller);
         }
 
-        // Aksi halde LİSTE yapısı: üstte özellik kartları şeridi, altta ya
-        // kanal listesi ya da (link yoksa) M3U giriş ekranı.
-        return Column(
-          children: [
-            if (features.isNotEmpty) _featureStrip(features),
-            Expanded(
-              child: controller.hasUrl.value
-                  ? _buildChannelList(controller)
-                  : _buildUrlInputScreen(controller),
-            ),
-          ],
-        );
+        // ── NORMAL MOD (login=false): Android liste yapısı. ASLA giriş ekranı YOK.
+        return _buildHome(controller, rc);
       }),
     );
   }
 
-  /// RC'de açık olan özellikleri (alt menüden çıkarılanlar) Ana Sayfa kartı
-  /// olarak toplar. Boss/Patron yalnızca adresi de doluysa eklenir.
+  /// RC'de açık olan özellikleri Ana Sayfa kart şeridine toplar — Android
+  /// sırasıyla: Patron → Boss → Mahsun → (content_json) → sekmeler.
   List<_Feature> _enabledFeatures() {
     final rc = RemoteConfigService();
-
-    // ANA KİLİT: login=true iken hiçbir içerik kartı gösterilmez.
     if (rc.loginGate) return const [];
-
     final list = <_Feature>[];
 
-    // 1) Çoklu kaynak (content_json) — birden fazla M3U + resolve, RC'den yönetilir.
+    // 1) Patron / Taraftarium (embedOnly iframe) — Android patron_section_*.
+    final patronUrl = rc.patronSectionUrl;
+    if (rc.patronSectionShow && patronUrl.isNotEmpty) {
+      list.add(_Feature(rc.patronSectionTitle, Icons.stadium, () => PremiumSporScreen(
+            title: rc.patronSectionTitle,
+            urls: [patronUrl],
+            embedOnly: true,
+            sectionEmbedBase: rc.patronSectionEmbedBase,
+          )));
+    }
+
+    // 2) Boss Sports — Android boss_section_* (matches + channels + watch).
+    final bossBase = rc.bossSectionBase;
+    if (rc.bossSectionShow && bossBase.isNotEmpty) {
+      list.add(_Feature(rc.bossSectionTitle, Icons.sports, () => PremiumSporScreen(
+            title: rc.bossSectionTitle,
+            urls: ['$bossBase/api/matches', '$bossBase/api/channels'],
+            bossEmbedBase: '$bossBase/?channel=',
+          )));
+    }
+
+    // 3) Mahsun Sports (sunucusuz) — Android mahsun_section_*.
+    if (rc.mahsunShow && rc.mahsunSite.isNotEmpty) {
+      final t = rc.mahsunTitle;
+      list.add(_Feature(t, Icons.sports_soccer, () => PremiumSporScreen(
+            title: t,
+            urls: [rc.mahsunSite],
+            kind: 'mahsun',
+            dataUrl: rc.mahsunData,
+          )));
+    }
+
+    // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve / mahsun kaynakları.
     for (final s in ContentSource.parseList(rc.contentSourcesJson)) {
-      if (s.isM3u) {
+      if (s.isMahsun) {
+        final t = s.title.isEmpty ? 'Canlı Spor' : s.title;
+        list.add(_Feature(t, Icons.sports, () => PremiumSporScreen(
+              title: t, urls: [s.url], kind: 'mahsun', dataUrl: s.embedBase)));
+      } else if (s.isM3u) {
         final t = s.title.isEmpty ? 'Liste' : s.title;
         list.add(_Feature(t, Icons.playlist_play, () => M3uListScreen(title: t, url: s.url)));
       } else {
-        // resolve → resolver'lı oynatıcı (Boss/Patron ile aynı altyapı).
         final t = s.title.isEmpty ? 'Canlı Yayın' : s.title;
         list.add(_Feature(t, Icons.live_tv, () => PremiumSporScreen(
               title: t,
@@ -120,24 +142,7 @@ class HomeScreen extends StatelessWidget {
       }
     }
 
-    // 2) Adlı bölümler (geriye dönük): Boss / Patron / TineFlix / Filmler / …
-    final bossBase = rc.bossSectionBase;
-    if (rc.bossSectionShow && bossBase.isNotEmpty) {
-      list.add(_Feature(rc.bossSectionTitle, Icons.sports, () => PremiumSporScreen(
-            title: rc.bossSectionTitle,
-            urls: ['$bossBase/api/matches', '$bossBase/api/channels'],
-            bossEmbedBase: '$bossBase/?channel=',
-          )));
-    }
-    final patronUrl = rc.patronSectionUrl;
-    if (rc.patronSectionShow && patronUrl.isNotEmpty) {
-      list.add(_Feature(rc.patronSectionTitle, Icons.stadium, () => PremiumSporScreen(
-            title: rc.patronSectionTitle,
-            urls: [patronUrl],
-            embedOnly: true,
-            sectionEmbedBase: rc.patronSectionEmbedBase,
-          )));
-    }
+    // 5) Sekmeler
     if (rc.tineflixEnabled) {
       list.add(_Feature('TineFlix', Icons.movie_creation_outlined, () => const TineflixScreen()));
     }
@@ -153,49 +158,105 @@ class HomeScreen extends StatelessWidget {
     return list;
   }
 
-  /// Yatay kaydırmalı özellik kartları şeridi (Android ana ekran kartları gibi).
-  Widget _featureStrip(List<_Feature> features) {
-    return SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-        itemCount: features.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final f = features[i];
-          return GestureDetector(
-            onTap: () => Get.to(f.open),
-            child: Container(
-              width: 108,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0x22E50914)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Icon(f.icon, color: const Color(0xFFE50914), size: 26),
-                  Text(
-                    f.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+  /// NORMAL MOD (login=false) Ana Sayfa — Android liste yapısı:
+  /// özellik kartları şeridi + Premium (premium_sites) + Kanal Listeleri
+  /// (m3u_playlists) + varsa tek m3u_url. HİÇBİR yerde M3U giriş ekranı yok.
+  Widget _buildHome(HomeController controller, RemoteConfigService rc) {
+    final features = _enabledFeatures();
+    final premium = rc.premiumSites;
+    final playlists = rc.m3uPlaylists;
+    final singleM3u = rc.m3uUrl.trim();
+
+    final sections = <Widget>[];
+
+    // ── Premium bölümü: özellik kartları (Patron / Boss / Mahsun / TineFlix …)
+    //    + premium_sites — HEPSİ DÜŞEY kart. Yana kaydırma YOK.
+    final premiumCards = <Widget>[];
+    for (final f in features) {
+      premiumCards.add(_listCard(f.title, f.icon, f.open));
+    }
+    for (final p in premium) {
+      final title = p['title'] ?? 'PREMIUM';
+      final url = p['url'] ?? '';
+      premiumCards.add(_listCard(title, Icons.workspace_premium,
+          () => PremiumSporScreen(title: title, urls: [url])));
+    }
+    if (premiumCards.isNotEmpty) {
+      sections.add(_sectionHeader('Premium'));
+      sections.addAll(premiumCards);
+    }
+
+    // ── Kanal Listeleri: m3u_playlists + varsa tek m3u_url.
+    if (playlists.isNotEmpty || singleM3u.isNotEmpty) {
+      sections.add(_sectionHeader('Kanal Listeleri'));
+      for (final pl in playlists) {
+        final name = pl['name'] ?? 'Liste';
+        final url = pl['url'] ?? '';
+        sections.add(_listCard(name, Icons.playlist_play,
+            () => M3uListScreen(title: name, url: url)));
+      }
+      if (singleM3u.isNotEmpty) {
+        sections.add(_listCard('Kanallar', Icons.live_tv,
+            () => M3uListScreen(title: 'Kanallar', url: singleM3u)));
+      }
+    }
+
+    // Hiç içerik yoksa: boş durum (M3U giriş ekranı DEĞİL).
+    if (sections.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('İçerik yakında eklenecek.',
+              style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+        ),
+      );
+    }
+
+    return ListView(
+      children: [
+        ...sections,
+        const SizedBox(height: 24),
+      ],
     );
   }
+
+  Widget _sectionHeader(String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 18, 14, 8),
+        child: Text(title,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+      );
+
+  Widget _listCard(String title, IconData icon, Widget Function() open) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: GestureDetector(
+          onTap: () => Get.to(open),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0x22E50914)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: const Color(0xFFE50914), size: 24),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      );
 
   void _watchRewardedForAdFree(BuildContext context) {
     if (AdFreeService().isAdFree) {

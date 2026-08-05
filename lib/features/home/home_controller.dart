@@ -2,11 +2,9 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/channel_model.dart';
 import '../../core/services/m3u_service.dart';
-import '../../core/services/remote_config_service.dart';
 
 class HomeController extends GetxController {
   final _m3uService = M3uService();
-  final _rc = RemoteConfigService();
 
   final channels = <Channel>[].obs;
   final filteredChannels = <Channel>[].obs;
@@ -26,22 +24,13 @@ class HomeController extends GetxController {
   }
 
   Future<void> _checkAndLoad() async {
-    // login=true → İNCELEME KİLİDİ: hiçbir şey otomatik yüklenmez, yalnızca
-    // M3U login/giriş ekranı gösterilir.
-    if (_rc.loginGate) {
-      isLoading.value = false;
-      hasUrl.value = false;
-      return;
-    }
-    final remoteUrl = _rc.m3uUrl;
-    if (remoteUrl.isNotEmpty) {
-      currentUrl.value = remoteUrl;
-      hasUrl.value = true;
-      await loadChannels(remoteUrl);
-    } else {
-      isLoading.value = false;
-      hasUrl.value = false;
-    }
+    // Android paritesi: Ana ekran artık m3u_playlists / premium_sites kartları
+    // üzerinden çalışır. Tek m3u_url (varsa) _buildHome içinde kart olur.
+    // Otomatik kanal yüklemesi YOK — hiçbir modda ekranı devralmaz.
+    //   login=true  → _buildUrlInputScreen (formalite); link girilince kanal listesi.
+    //   login=false → _buildHome (Android liste yapısı); ASLA giriş ekranı yok.
+    isLoading.value = false;
+    hasUrl.value = false;
   }
 
   Future<void> loadFromUserUrl(String url) async {
