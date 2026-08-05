@@ -110,24 +110,9 @@ class HomeScreen extends StatelessWidget {
           )));
     }
 
-    // 3) Mahsun Sports (sunucusuz) — Android mahsun_section_*.
-    if (rc.mahsunShow && rc.mahsunSite.isNotEmpty) {
-      final t = rc.mahsunTitle;
-      list.add(_Feature(t, Icons.sports_soccer, () => PremiumSporScreen(
-            title: t,
-            urls: [rc.mahsunSite],
-            kind: 'mahsun',
-            dataUrl: rc.mahsunData,
-          )));
-    }
-
-    // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve / mahsun kaynakları.
+    // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve kaynakları.
     for (final s in ContentSource.parseList(rc.contentSourcesJson)) {
-      if (s.isMahsun) {
-        final t = s.title.isEmpty ? 'Canlı Spor' : s.title;
-        list.add(_Feature(t, Icons.sports, () => PremiumSporScreen(
-              title: t, urls: [s.url], kind: 'mahsun', dataUrl: s.embedBase)));
-      } else if (s.isM3u) {
+      if (s.isM3u) {
         final t = s.title.isEmpty ? 'Liste' : s.title;
         list.add(_Feature(t, Icons.playlist_play, () => M3uListScreen(title: t, url: s.url)));
       } else {
