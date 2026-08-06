@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'core/services/remote_config_service.dart';
 import 'core/services/ad_service.dart';
 import 'core/services/ad_free_service.dart';
+import 'core/services/premium_gate_service.dart';
 import 'core/services/progress_service.dart';
 import 'features/main_nav/main_nav_screen.dart';
 
@@ -15,6 +16,7 @@ void main() async {
 
   await Hive.initFlutter();
   await AdFreeService().initialize();
+  await PremiumGateService().initialize();
   await ProgressService.initialize();
 
   await Firebase.initializeApp(
@@ -50,6 +52,20 @@ class _TineTVAppState extends State<TineTVApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // AÇILIŞ REKLAMI: hangi ağ açıksa ondan app-open göster. Reklam yüklenene
+    // kadar birkaç kez dener; gösterilince durur.
+    _showAppOpenAtLaunch();
+  }
+
+  void _showAppOpenAtLaunch() {
+    int tries = 0;
+    void attempt() {
+      if (AdService().showAppOpen()) return; // gösterildi → dur
+      if (++tries < 5) {
+        Future.delayed(const Duration(seconds: 2), attempt);
+      }
+    }
+    Future.delayed(const Duration(seconds: 2), attempt);
   }
 
   @override
