@@ -5,6 +5,7 @@ import 'package:unity_ads_plugin/unity_ads_plugin.dart';
 import 'package:yandex_mobileads/mobile_ads.dart' as ya;
 import 'ad_free_service.dart';
 import 'remote_config_service.dart';
+import 'inmobi_service.dart';
 
 /// Reklam yöneticisi — Android sistemiyle AYNI mantık:
 ///   • Aktif ağ (öncelik admob>yandex>unity) geçiş + ödüllü reklamı verir.
@@ -75,6 +76,14 @@ class AdService {
     }
     // Yandex SDK v8 ilk reklam yüklemesinde OTOMATİK başlar — ayrı init yok.
 
+    // InMobi (bağımsız / standalone) — sadece açıksa başlat + geçiş/ödül önyükle.
+    if (_rc.showInmobiAds && _rc.inmobiAccountId.isNotEmpty) {
+      final inmobi = InMobiService();
+      await inmobi.init(_rc.inmobiAccountId);
+      inmobi.loadInterstitial(_rc.inmobiInterstitialId);
+      inmobi.loadRewarded(_rc.inmobiRewardedId);
+    }
+
     _loadInterstitial();
     _loadAppOpen();
   }
@@ -110,13 +119,14 @@ class AdService {
     }
   }
 
-  void showAppOpen() {
-    if (!_rc.appOpenAdEnabled) return;
+  /// Açılış reklamını gösterir. Dönüş: reklam gösterildi mi (yüklü değilse false).
+  bool showAppOpen() {
+    if (!_rc.appOpenAdEnabled) return false;
     final net = _rc.appOpenNetwork;
 
     if (net == 'admob') {
       final ad = _admobAppOpen;
-      if (ad == null) return;
+      if (ad == null) return false;
       _admobAppOpen = null;
       ad.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (a) {
@@ -129,9 +139,10 @@ class AdService {
         },
       );
       ad.show();
+      return true;
     } else if (net == 'yandex') {
       final ad = _yandexAppOpen;
-      if (ad == null) return;
+      if (ad == null) return false;
       _yandexAppOpen = null;
       ad.setAdEventListener(
         eventListener: ya.AppOpenAdEventListener(
@@ -149,7 +160,9 @@ class AdService {
         ),
       );
       ad.show();
+      return true;
     }
+    return false;
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -157,20 +170,26 @@ class AdService {
   // ══════════════════════════════════════════════════════════════════════════
   void _loadInterstitial() {
     if (!_rc.interstitialEnabled) return;
-    final net = _rc.interstitialNetwork; // admob | yandex | unity
+    final net = _rc.interstitialNetwork; // admob | yandex | unity | inmobi
     if (net == 'admob') {
-      InterstitialAd.load(
-        adUnitId: _rc.admobInterstitialId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (ad) => _admobInterstitial = ad,
-          onAdFailedToLoad: (error) => _admobInterstitial = null,
-        ),
-      );
+      _loadAdmobInterstitial();
     } else if (net == 'yandex') {
       _loadYandexInterstitial();
+    } else if (net == 'inmobi') {
+      InMobiService().loadInterstitial(_rc.inmobiInterstitialId);
     }
     // unity: yükleme show anında yapılır (UnityAds.load→showVideoAd).
+  }
+
+  void _loadAdmobInterstitial() {
+    InterstitialAd.load(
+      adUnitId: _rc.admobInterstitialId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) => _admobInterstitial = ad,
+        onAdFailedToLoad: (error) => _admobInterstitial = null,
+      ),
+    );
   }
 
   Future<void> _loadYandexInterstitial() async {
@@ -260,6 +279,11 @@ class AdService {
         },
         onFailed: (_, __, ___) => onDone(),
       );
+    } else if (net == 'inmobi') {
+      InMobiService().showInterstitial(onDone: onDone).then((shown) {
+        if (!shown) onDone();
+      });
+      InMobiService().loadInterstitial(_rc.inmobiInterstitialId); // sonraki için önden yükle
     } else {
       onDone();
     }
@@ -277,9 +301,21 @@ class AdService {
   // ══════════════════════════════════════════════════════════════════════════
   //  REWARDED (ödüllü) — admob / yandex / unity
   // ══════════════════════════════════════════════════════════════════════════
-  void showRewarded({required Function() onReward}) {
-    if (!_rc.rewardedAdEnabled) return;
+  /// Ödüllü reklam. [onReward] ödül kazanılınca; [onDone] her durumda (ödül,
+  /// kapatma, başarısızlık, reklam yok) EN AZ BİR KEZ çağrılır — premium kapısı
+  /// buna göre "gir/açma" kararı verir.
+  void showRewarded({required Function() onReward, VoidCallback? onDone}) {
+    if (!_rc.rewardedAdEnabled) {
+      onDone?.call();
+      return;
+    }
     final net = _rc.rewardedNetwork;
+    var done = false;
+    void finish() {
+      if (done) return;
+      done = true;
+      onDone?.call();
+    }
 
     if (net == 'admob') {
       RewardedAd.load(
@@ -288,36 +324,48 @@ class AdService {
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (ad) {
             ad.fullScreenContentCallback = FullScreenContentCallback(
-              onAdDismissedFullScreenContent: (a) => a.dispose(),
-              onAdFailedToShowFullScreenContent: (a, error) => a.dispose(),
+              onAdDismissedFullScreenContent: (a) { a.dispose(); finish(); },
+              onAdFailedToShowFullScreenContent: (a, error) { a.dispose(); finish(); },
             );
             ad.show(onUserEarnedReward: (_, reward) => onReward());
           },
-          onAdFailedToLoad: (_) {},
+          onAdFailedToLoad: (_) => finish(),
         ),
       );
     } else if (net == 'yandex') {
-      _showYandexRewarded(onReward: onReward);
+      _showYandexRewarded(onReward: onReward, onDone: finish);
     } else if (net == 'unity') {
       UnityAds.load(
         placementId: _rc.getString('unity_rewarded_id'),
         onComplete: (placementId) {
           UnityAds.showVideoAd(
             placementId: placementId,
-            onComplete: (_) => onReward(),
-            onFailed: (_, __, ___) {},
+            onComplete: (_) { onReward(); finish(); },
+            onFailed: (_, __, ___) => finish(),
             onStart: (_) {},
             onClick: (_) {},
-            onSkipped: (_) {},
+            onSkipped: (_) => finish(),
           );
         },
-        onFailed: (_, __, ___) {},
+        onFailed: (_, __, ___) => finish(),
       );
+    } else if (net == 'inmobi') {
+      final inmobi = InMobiService();
+      inmobi.showRewarded(onReward: onReward, onDone: finish).then((shown) {
+        if (!shown) finish();
+        inmobi.loadRewarded(_rc.inmobiRewardedId); // sonraki için önden yükle
+      });
+    } else {
+      finish();
     }
   }
 
-  Future<void> _showYandexRewarded({required Function() onReward}) async {
-    if (_rc.yandexRewardedId.isEmpty) return;
+  Future<void> _showYandexRewarded(
+      {required Function() onReward, VoidCallback? onDone}) async {
+    if (_rc.yandexRewardedId.isEmpty) {
+      onDone?.call();
+      return;
+    }
     try {
       final loader = ya.RewardedAdLoader();
       final ad =
@@ -325,29 +373,16 @@ class AdService {
       ad.setAdEventListener(
         eventListener: ya.RewardedAdEventListener(
           onAdShown: () {},
-          onAdFailedToShow: (error) => ad.destroy(),
+          onAdFailedToShow: (error) { ad.destroy(); onDone?.call(); },
           onAdClicked: () {},
-          onAdDismissed: () => ad.destroy(),
+          onAdDismissed: () { ad.destroy(); onDone?.call(); },
           onAdImpression: (data) {},
           onRewarded: (reward) => onReward(),
         ),
       );
       await ad.show();
-    } catch (_) {}
-  }
-
-  /// Ödüllü karşılığı reklamsız pencere açar (Ayarlar/"Reklamsız İzle").
-  void showRewardedForAdFree(
-      {required VoidCallback onGranted, required VoidCallback onFailed}) {
-    if (!_rc.rewardedAdEnabled) {
-      onFailed();
-      return;
+    } catch (_) {
+      onDone?.call();
     }
-    showRewarded(
-      onReward: () {
-        _adFree.grantHours(_rc.adFreeHours);
-        onGranted();
-      },
-    );
   }
 }

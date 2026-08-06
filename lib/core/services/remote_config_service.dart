@@ -28,10 +28,11 @@ class RemoteConfigService {
     // ihtiyaç var; RC'den "_ios" anahtarı henüz tanımlı değilse (fetch
     // gelmeden önce veya konsola hiç eklenmezse) buradaki yerel varsayılan
     // devreye girer — Firebase konsolundaki güncel değerlerle senkron tutuldu.
-    'admob_app_open_id_ios':     'ca-app-pub-2289573527937577/7387612952',
-    'admob_interstitial_id_ios': 'ca-app-pub-2289573527937577/7220091995',
-    'admob_native_id_ios':       'ca-app-pub-2289573527937577/9654683647',
-    'admob_rewarded_id_ios':     'ca-app-pub-2289573527937577/8197262202',
+    // AdMob Mediation birimleri (yeni app ~4532624646).
+    'admob_app_open_id_ios':     'ca-app-pub-2289573527937577/6114608472',
+    'admob_interstitial_id_ios': 'ca-app-pub-2289573527937577/9706369121',
+    'admob_native_id_ios':       'ca-app-pub-2289573527937577/7140749686',
+    'admob_rewarded_id_ios':     'ca-app-pub-2289573527937577/7087678716',
     'unity_game_id': '',
     'unity_interstitial_id': 'Interstitial_iOS',
     'unity_rewarded_id': 'Rewarded_iOS',
@@ -43,6 +44,13 @@ class RemoteConfigService {
     'show_admob_ads': false,
     'show_yandex_ads': false,
     'show_unity_ads': true,
+    // InMobi (bağımsız / standalone) — sadece iOS, native köprü ile. En düşük
+    // öncelikli ağ (admob>yandex>unity>inmobi). Geçiş + ödül (native henüz yok).
+    'show_inmobi_ads': false,
+    'inmobi_account_id': '',
+    'inmobi_interstitial_id': '',
+    'inmobi_rewarded_id': '',
+    'inmobi_native_id': '',
     // Yandex iOS reklam birimleri (Boost app 19601807).
     'yandex_interstitial_id': 'R-M-19601807-4',
     'yandex_app_open_id':     'R-M-19601807-3',
@@ -176,6 +184,13 @@ class RemoteConfigService {
   bool get showAdmobAds  => _rc.getBool('show_admob_ads');
   bool get showYandexAds => _rc.getBool('show_yandex_ads');
   bool get showUnityAds  => _rc.getBool('show_unity_ads');
+  bool get showInmobiAds => _rc.getBool('show_inmobi_ads');
+
+  // InMobi (bağımsız) — hesap + yerleşim id'leri.
+  String get inmobiAccountId      => _rc.getString('inmobi_account_id').trim();
+  String get inmobiInterstitialId => _rc.getString('inmobi_interstitial_id').trim();
+  String get inmobiRewardedId     => _rc.getString('inmobi_rewarded_id').trim();
+  String get inmobiNativeId       => _rc.getString('inmobi_native_id').trim();
 
   String get yandexInterstitialId => _rc.getString('yandex_interstitial_id');
   String get yandexAppOpenId      => _rc.getString('yandex_app_open_id');
@@ -187,6 +202,7 @@ class RemoteConfigService {
     if (showAdmobAds) return 'admob';
     if (showYandexAds) return 'yandex';
     if (showUnityAds) return 'unity';
+    if (showInmobiAds) return 'inmobi'; // en düşük öncelik (bağımsız yedek ağ)
     return 'none';
   }
 
