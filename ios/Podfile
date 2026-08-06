@@ -33,6 +33,10 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
+  # InMobi (bağımsız / standalone) — native SDK. Flutter'ın resmi eklentisi yok,
+  # köprü InMobiBridge.swift üzerinden. Sürüm Android ile uyumlu tutuldu.
+  pod 'InMobiSDK', '~> 10.8.0'
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
