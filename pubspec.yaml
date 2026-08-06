@@ -1,7 +1,7 @@
 name: tinetv
 description: "TİNE TV - Live, VOD & Music"
 publish_to: 'none'
-version: 3.10.0+2
+version: 3.11.0+3
 
 environment:
   sdk: ^3.8.1
