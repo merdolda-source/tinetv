@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'home_controller.dart';
 import '../channel_detail/channel_detail_screen.dart';
 import '../../core/services/ad_service.dart';
-import '../../core/services/ad_free_service.dart';
+import '../../core/services/premium_gate_service.dart';
 import '../../core/services/remote_config_service.dart';
 // Ana Sayfa listesinden (kart) açılan özellik ekranları.
 import '../premium/premium_spor_screen.dart';
@@ -20,7 +20,8 @@ class _Feature {
   final String title;
   final IconData icon;
   final Widget Function() open;
-  const _Feature(this.title, this.icon, this.open);
+  final bool gated; // true → girişte ödüllü reklam kapısı (6 saat serbest)
+  const _Feature(this.title, this.icon, this.open, {this.gated = false});
 }
 
 class HomeScreen extends StatelessWidget {
@@ -43,14 +44,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              AdFreeService().isAdFree ? Icons.card_giftcard : Icons.card_giftcard_outlined,
-              color: const Color(0xFFE50914),
-            ),
-            tooltip: 'Reklamsız İzle',
-            onPressed: () => _watchRewardedForAdFree(context),
-          ),
           Obx(() => controller.hasUrl.value
               ? IconButton(
                   icon: const Icon(Icons.link_off, color: Colors.grey),
@@ -97,7 +90,7 @@ class HomeScreen extends StatelessWidget {
             urls: [patronUrl],
             embedOnly: true,
             sectionEmbedBase: rc.patronSectionEmbedBase,
-          )));
+          ), gated: true));
     }
 
     // 2) Boss Sports — Android boss_section_* (matches + channels + watch).
@@ -107,7 +100,7 @@ class HomeScreen extends StatelessWidget {
             title: rc.bossSectionTitle,
             urls: ['$bossBase/api/matches', '$bossBase/api/channels'],
             bossEmbedBase: '$bossBase/?channel=',
-          )));
+          ), gated: true));
     }
 
     // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve kaynakları.
@@ -123,7 +116,7 @@ class HomeScreen extends StatelessWidget {
               embedOnly: s.embedOnly,
               sectionEmbedBase: s.embedOnly ? s.embedBase : '',
               bossEmbedBase: s.embedOnly ? '' : s.embedBase,
-            )));
+            ), gated: true));
       }
     }
 
@@ -158,13 +151,13 @@ class HomeScreen extends StatelessWidget {
     //    + premium_sites — HEPSİ DÜŞEY kart. Yana kaydırma YOK.
     final premiumCards = <Widget>[];
     for (final f in features) {
-      premiumCards.add(_listCard(f.title, f.icon, f.open));
+      premiumCards.add(_listCard(f.title, f.icon, f.open, gated: f.gated));
     }
     for (final p in premium) {
       final title = p['title'] ?? 'PREMIUM';
       final url = p['url'] ?? '';
       premiumCards.add(_listCard(title, Icons.workspace_premium,
-          () => PremiumSporScreen(title: title, urls: [url])));
+          () => PremiumSporScreen(title: title, urls: [url]), gated: true));
     }
     if (premiumCards.isNotEmpty) {
       sections.add(_sectionHeader('Premium'));
@@ -212,10 +205,18 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       );
 
-  Widget _listCard(String title, IconData icon, Widget Function() open) => Padding(
+  Widget _listCard(String title, IconData icon, Widget Function() open,
+          {bool gated = false}) =>
+      Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         child: GestureDetector(
-          onTap: () => Get.to(open),
+          onTap: () {
+            if (gated) {
+              _openPremium(open);
+            } else {
+              Get.to(open);
+            }
+          },
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -243,28 +244,30 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-  void _watchRewardedForAdFree(BuildContext context) {
-    if (AdFreeService().isAdFree) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Zaten reklamsız moddasın, keyfini çıkar! 🎉')),
-      );
+  /// Premium/Patron gibi bölümlere giriş kapısı. Kilitliyse ödüllü reklam göster;
+  /// ödül izlenince 6 saat serbest. Reklam gelmese/başarısız olsa da kullanıcı
+  /// kilitli kalmasın diye reklam akışı bitince yine de girilir. Geçiş
+  /// reklamları bundan ETKİLENMEZ (para kazanımı sürer).
+  void _openPremium(Widget Function() open) {
+    final gate = PremiumGateService();
+    if (gate.isUnlocked) {
+      Get.to(open);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reklam yükleniyor...')),
-    );
-    AdService().showRewardedForAdFree(
-      onGranted: () {
-        final hours = RemoteConfigService().adFreeHours;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ $hours saat reklamsız! Bol keyifli izlemeler.')),
-        );
-      },
-      onFailed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reklam gösterilemedi, biraz sonra tekrar dene.')),
-        );
-      },
+    Get.snackbar('Premium', 'Girmek için kısa bir ödül reklamı…',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF1A1A1A),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2));
+    var entered = false;
+    void enter() {
+      if (entered) return;
+      entered = true;
+      Get.to(open);
+    }
+    AdService().showRewarded(
+      onReward: () => PremiumGateService().unlockHours(6),
+      onDone: enter,
     );
   }
 
