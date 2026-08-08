@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../core/models/channel_model.dart';
+import '../../core/services/remote_config_service.dart';
 import 'cloudflare_player_screen.dart';
 
 /// Ana kanal oynatıcı — Android PlayerActivity paritesi (tek cihaz oynatma):
@@ -155,7 +156,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
+      body: Stack(children: [
+        Center(
         child: _hata
             ? Column(
                 mainAxisSize: MainAxisSize.min,
@@ -188,6 +190,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: BetterPlayer(controller: _controller),
               ),
       ),
+        // Oynatıcı mesajı (Android show_player_message paritesi).
+        if (RemoteConfigService().showPlayerMessage &&
+            RemoteConfigService().playerMessage.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              color: Colors.black54,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              child: Text(
+                RemoteConfigService().playerMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 }
