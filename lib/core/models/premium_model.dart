@@ -17,6 +17,10 @@ class PremiumItem {
   final String userAgent;
   final String group;
   final String sport;
+  // Zeus maçı: media_url boş gelir; tıklamada bu uçtan m3u8 çözülür (ZeusSource
+  // .resolveMatch). Kanal/diğer kaynaklarda boştur.
+  final String zeusMatchUrl;
+  final String zeusCdn;
 
   const PremiumItem({
     required this.title,
@@ -29,6 +33,8 @@ class PremiumItem {
     this.userAgent = '',
     this.group = '',
     this.sport = '',
+    this.zeusMatchUrl = '',
+    this.zeusCdn = '',
   });
 
   PremiumItem copyWith({
