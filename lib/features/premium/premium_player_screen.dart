@@ -177,6 +177,24 @@ class _PremiumPlayerScreenState extends State<PremiumPlayerScreen> {
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
+            // Oynatıcı mesajı (Android show_player_message paritesi).
+            if (RemoteConfigService().showPlayerMessage &&
+                RemoteConfigService().playerMessage.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.black54,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  child: Text(
+                    RemoteConfigService().playerMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
