@@ -1,7 +1,7 @@
 name: tinetv
 description: "TİNE TV - Live, VOD & Music"
 publish_to: 'none'
-version: 3.11.0+3
+version: 3.6.0+20
 
 environment:
   sdk: ^3.8.1
@@ -21,6 +21,7 @@ dependencies:
   connectivity_plus: 6.1.1
   better_player_plus: ^1.0.8
   webview_flutter: ^4.13.1
+  url_launcher: ^6.3.1
   unity_ads_plugin: ^0.3.30
   yandex_mobileads: ^8.2.0
   flutter_launcher_icons: ^0.14.4
