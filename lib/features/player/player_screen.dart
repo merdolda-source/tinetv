@@ -97,7 +97,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   BetterPlayerVideoFormat? _format(String url) {
     final l = url.toLowerCase();
-    if (l.contains('.m3u8') || l.contains('/hls/') || l.contains('playlist.m3u')) {
+    // .txt / index.txt (Zeus vb. gizli-HLS uçları) da HLS olarak oynatılır.
+    if (l.contains('.m3u8') ||
+        l.contains('/hls/') ||
+        l.contains('playlist.m3u') ||
+        l.contains('/index.txt') ||
+        l.contains('.txt')) {
       return BetterPlayerVideoFormat.hls;
     }
     if (l.contains('.mpd')) return BetterPlayerVideoFormat.dash;
