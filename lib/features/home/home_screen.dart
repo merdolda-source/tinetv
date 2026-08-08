@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'home_controller.dart';
 import '../channel_detail/channel_detail_screen.dart';
 import '../../core/services/ad_service.dart';
@@ -44,6 +45,18 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          // Telegram — RC 'telegram_url' doluysa harici uygulamada açar (Android paritesi).
+          if (RemoteConfigService().telegramUrl.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.send, color: Color(0xFF229ED9)),
+              tooltip: 'Telegram',
+              onPressed: () async {
+                final uri = Uri.tryParse(RemoteConfigService().telegramUrl);
+                if (uri != null) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
           Obx(() => controller.hasUrl.value
               ? IconButton(
                   icon: const Icon(Icons.link_off, color: Colors.grey),
@@ -103,6 +116,17 @@ class HomeScreen extends StatelessWidget {
           ), gated: true));
     }
 
+    // 3) Mahsun Sports — SUNUCUSUZ (script4.js cihazda). Android mahsun_section_*.
+    final mahsunSite = rc.mahsunSite;
+    if (rc.mahsunShow && mahsunSite.isNotEmpty) {
+      list.add(_Feature(rc.mahsunTitle, Icons.sports_soccer, () => PremiumSporScreen(
+            title: rc.mahsunTitle,
+            urls: [mahsunSite],
+            kind: 'mahsun',
+            dataUrl: rc.mahsunData,
+          ), gated: true));
+    }
+
     // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve kaynakları.
     for (final s in ContentSource.parseList(rc.contentSourcesJson)) {
       if (s.isM3u) {
@@ -131,7 +155,7 @@ class HomeScreen extends StatelessWidget {
       list.add(_Feature('Haberler', Icons.article, () => const HaberlerScreen()));
     }
     if (rc.sitesEnabled) {
-      list.add(_Feature('Siteler', Icons.public, () => const SitesScreen()));
+      list.add(_Feature('Diziler & Filmler', Icons.public, () => const SitesScreen()));
     }
     return list;
   }
@@ -244,30 +268,49 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-  /// Premium/Patron gibi bölümlere giriş kapısı. Kilitliyse ödüllü reklam göster;
-  /// ödül izlenince 6 saat serbest. Reklam gelmese/başarısız olsa da kullanıcı
-  /// kilitli kalmasın diye reklam akışı bitince yine de girilir. Geçiş
-  /// reklamları bundan ETKİLENMEZ (para kazanımı sürer).
+  /// Premium/Boss/Patron/Mahsun giriş kapısı — ödüllü reklamı İZLEMEK ZORUNLU.
+  /// Ödül kazanılırsa RC süresi (ad_free_duration_minutes, dakika) kadar tüm
+  /// premium bölümler serbest kalır ve içeri girilir; izlenmez/atlanırsa bölüm
+  /// AÇILMAZ. Serbest süre içinde tekrar reklam/mesaj çıkmaz. Geçiş reklamları
+  /// bundan ETKİLENMEZ (para kazanımı sürer).
   void _openPremium(Widget Function() open) {
     final gate = PremiumGateService();
+    // Serbest süre içindeyse doğrudan gir — mesaj/reklam YOK.
     if (gate.isUnlocked) {
       Get.to(open);
       return;
     }
-    Get.snackbar('Premium', 'Girmek için kısa bir ödül reklamı…',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF1A1A1A),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2));
-    var entered = false;
-    void enter() {
-      if (entered) return;
-      entered = true;
-      Get.to(open);
-    }
+    // Kapı zaten açılıyorsa (reklam yükleniyor/gösteriliyor) çift dokunmayı ve
+    // X sonrası tekrar açılmayı engelle — Boss "X'e basınca tekrar giriyor"
+    // hatasının kök çözümü.
+    if (gate.gateInProgress) return;
+    gate.gateInProgress = true;
+
+    var rewardEarned = false;
+    var handled = false;
     AdService().showRewarded(
-      onReward: () => PremiumGateService().unlockHours(6),
-      onDone: enter,
+      onReward: () {
+        rewardEarned = true;
+        // Süre RC'den: ad_free_duration_minutes (dakika).
+        gate.unlockMinutes(RemoteConfigService().premiumUnlockMinutes);
+      },
+      onDone: () {
+        if (handled) return;
+        handled = true;
+        gate.gateInProgress = false;
+        if (rewardEarned) {
+          Get.to(open); // ödül izlendi → aç
+        } else {
+          // İzlenmedi/atlandı/reklam yok → AÇMA, kısa bilgi ver (her seferinde
+          // değil; yalnızca kilitliyken ve izlenmediğinde).
+          Get.snackbar(
+              'Premium', 'Bölümü açmak için ödüllü reklamı sonuna kadar izle.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: const Color(0xFF1A1A1A),
+              colorText: Colors.white,
+              duration: const Duration(seconds: 2));
+        }
+      },
     );
   }
 
