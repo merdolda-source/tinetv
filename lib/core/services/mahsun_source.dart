@@ -8,7 +8,7 @@ import '../models/premium_model.dart';
 ///
 ///  script4.js → {title, url:/event.html?id=androstreamlive...} dizileri
 ///  event.html → baseurls[]  ve  m3u8 = base + id + ".m3u8"
-///  m3u8 CDN'i referer'siz 403; referer=<site>/ ile 200.
+///  m3u8 CDN'i referer'siz 403; referer=site/ ile 200.
 ///
 /// Domain değişirse SADECE content_json'daki `url` (site) güncellenir — uygulama
 /// güncellemesi GEREKMEZ. iOS'ta CDN "facebooklive" varyantını ister; bunu
