@@ -61,15 +61,25 @@ class RemoteConfigService {
     'ad_interstitial_wait_seconds': 5,
     'ad_rewarded_wait_seconds': 3,
     'ad_free_hours': 24,
+    // Premium/Boss/Patron/Mahsun GİRİŞ kilidi süresi — Android ile AYNI anahtar
+    // (dakika). Ödüllü izlenince bu süre kadar premium bölümler serbest kalır.
+    'ad_free_duration_minutes': 60,
     // TineFlix — kapalıyken sekme hiç gösterilmez, m3u ekranı değişmeden kalır.
     'tineflix_enabled': false,
     'tineflix_api_url': '', // m3u_url ile aynı mantık — backend adresi değişirse/kapanırsa
                             // uygulama güncellemesi gerekmeden sadece Firebase'ten değiştirilsin.
     'tineflix_ep_ad_interval': 10,
-    // Siteler — kapalıyken sekme hiç gösterilmez.
+    // Siteler / WebView — Android AYNI anahtar: webview_sites [{"title","url"}].
+    // Liste doluysa "Diziler & Filmler" bölümü görünür (Android'de ayrı switch yok).
+    // Eski sites_json/sites_enabled geriye-uyum için korunur.
+    'webview_sites': '[]',
     'sites_enabled': false,
     'sites_json': '[]',
     'site_nav_ad_click_count': 3,
+    // Telegram + oynatıcı mesajı (Android paritesi).
+    'telegram_url': '',
+    'player_message': '',
+    'show_player_message': false,
     // Film — kapalıyken sekme hiç gösterilmez.
     'film_enabled': false,
     'film_api_url': '',
@@ -241,13 +251,40 @@ class RemoteConfigService {
   String get unityGameId => _rc.getString('unity_game_id');
   int get adFreeHours => _rc.getInt('ad_free_hours');
 
+  /// Premium giriş kilidi süresi (dakika) — Android 'ad_free_duration_minutes'.
+  /// Boşsa/0 ise eski 'ad_free_hours' saatten türetilir; o da yoksa 360 dk (6 sa).
+  int get premiumUnlockMinutes {
+    final m = _rc.getInt('ad_free_duration_minutes');
+    if (m > 0) return m;
+    final h = adFreeHours;
+    return h > 0 ? h * 60 : 360;
+  }
+
   bool get tineflixEnabled => _rc.getBool('tineflix_enabled');
   String get tineflixApiUrl => _rc.getString('tineflix_api_url');
   int get tineflixEpAdInterval => _rc.getInt('tineflix_ep_ad_interval');
 
-  bool get sitesEnabled => _rc.getBool('sites_enabled');
-  String get sitesJson => _rc.getString('sites_json');
+  // Android 'webview_sites' önceliklidir; boşsa eski 'sites_json' okunur.
+  String get sitesJson {
+    final w = _rc.getString('webview_sites').trim();
+    if (w.isNotEmpty && w != '[]') return w;
+    return _rc.getString('sites_json');
+  }
+
+  // Android mantığı: liste doluysa bölüm görünür (ayrı switch yok). Eski
+  // 'sites_enabled' true ise de gösterilir (geriye uyum).
+  bool get sitesEnabled {
+    final raw = sitesJson.trim();
+    if (raw.isNotEmpty && raw != '[]') return true;
+    return _rc.getBool('sites_enabled');
+  }
+
   int get siteNavAdClickCount => _rc.getInt('site_nav_ad_click_count');
+
+  // Telegram harici link + oynatıcı mesajı (Android paritesi).
+  String get telegramUrl => _rc.getString('telegram_url').trim();
+  String get playerMessage => _rc.getString('player_message');
+  bool get showPlayerMessage => _rc.getBool('show_player_message');
 
   bool get filmEnabled => _rc.getBool('film_enabled');
   String get filmApiUrl => _rc.getString('film_api_url');

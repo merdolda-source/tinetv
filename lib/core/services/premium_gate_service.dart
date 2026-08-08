@@ -14,6 +14,10 @@ class PremiumGateService {
 
   Box? _box;
 
+  /// Kapı açılışı sürerken (ödül reklamı yüklenip gösterilirken) true.
+  /// Çift dokunma / X sonrası tekrar açılma (Boss loop) bununla engellenir.
+  bool gateInProgress = false;
+
   Future<void> initialize() async {
     _box = await Hive.openBox(_boxName);
   }
@@ -26,6 +30,14 @@ class PremiumGateService {
   Future<void> unlockHours(int hours) async {
     final until =
         DateTime.now().add(Duration(hours: hours)).millisecondsSinceEpoch;
+    await _box?.put(_key, until);
+  }
+
+  /// Dakika bazlı kilit açma (RC 'ad_free_duration_minutes' ile kullanılır).
+  Future<void> unlockMinutes(int minutes) async {
+    final until = DateTime.now()
+        .add(Duration(minutes: minutes))
+        .millisecondsSinceEpoch;
     await _box?.put(_key, until);
   }
 }
