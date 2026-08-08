@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/premium_model.dart';
 import '../../core/services/premium_service.dart';
 import '../../core/services/mahsun_source.dart';
+import '../../core/services/zeus_source.dart';
 import '../../core/services/ad_service.dart';
 import 'premium_player_screen.dart';
 
@@ -49,17 +50,22 @@ class _PremiumSporScreenState extends State<PremiumSporScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final result = widget.kind == 'mahsun'
-        ? await MahsunSource.fetch(
-            widget.urls.isNotEmpty ? widget.urls.first : '',
-            dataUrl: widget.dataUrl,
-          )
-        : await _service.fetch(
-            urls: widget.urls,
-            embedOnly: widget.embedOnly,
-            sectionEmbedBase: widget.sectionEmbedBase,
-            bossEmbedBase: widget.bossEmbedBase,
-          );
+    final String base = widget.urls.isNotEmpty ? widget.urls.first : '';
+    final List<PremiumItem> result;
+    if (widget.kind == 'mahsun') {
+      result = await MahsunSource.fetch(base, dataUrl: widget.dataUrl);
+    } else if (widget.kind == 'zeus_channels') {
+      result = await ZeusSource.fetchChannels(base);
+    } else if (widget.kind == 'zeus_matches') {
+      result = await ZeusSource.fetchMatches(base);
+    } else {
+      result = await _service.fetch(
+        urls: widget.urls,
+        embedOnly: widget.embedOnly,
+        sectionEmbedBase: widget.sectionEmbedBase,
+        bossEmbedBase: widget.bossEmbedBase,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _items = result;
@@ -67,9 +73,23 @@ class _PremiumSporScreenState extends State<PremiumSporScreen> {
     });
   }
 
-  void _open(PremiumItem item) {
-    // Boss / Patron / Mahsun / Premium açılışında da geçiş reklamı (sayaçlı).
+  Future<void> _open(PremiumItem item) async {
+    // Boss / Patron / Mahsun / Zeus / Premium açılışında da geçiş reklamı (sayaçlı).
     AdService().onChannelOpened();
+    // Zeus maçı: media_url boş gelir; tıklamada m3u8 çöz, sonra oynat.
+    if (item.zeusMatchUrl.isNotEmpty) {
+      final m3u8 = await ZeusSource.resolveMatch(
+          item.zeusMatchUrl, item.zeusCdn, item.referer);
+      if (m3u8 == null || m3u8.isEmpty) {
+        Get.snackbar('Zeus', 'Yayın bulunamadı',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF1A1A1A),
+            colorText: Colors.white);
+        return;
+      }
+      Get.to(() => PremiumPlayerScreen(item: item.copyWith(mediaUrl: m3u8)));
+      return;
+    }
     Get.to(() => PremiumPlayerScreen(item: item));
   }
 
