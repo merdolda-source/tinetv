@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/premium_model.dart';
 import '../../core/services/premium_service.dart';
+import '../../core/services/mahsun_source.dart';
+import '../../core/services/ad_service.dart';
 import 'premium_player_screen.dart';
 
 /// Boss Sports / Patron-Taraftarium premium spor listesi (Android
@@ -15,6 +17,9 @@ class PremiumSporScreen extends StatefulWidget {
   final bool embedOnly;
   final String sectionEmbedBase;
   final String bossEmbedBase;
+  // kind: 'generic' (Boss/Patron/JSON)  |  'mahsun' (sunucusuz script4.js).
+  final String kind;
+  final String dataUrl; // mahsun: script4.js adresi (opsiyonel)
 
   const PremiumSporScreen({
     super.key,
@@ -23,6 +28,8 @@ class PremiumSporScreen extends StatefulWidget {
     this.embedOnly = false,
     this.sectionEmbedBase = '',
     this.bossEmbedBase = '',
+    this.kind = 'generic',
+    this.dataUrl = '',
   });
 
   @override
@@ -42,12 +49,17 @@ class _PremiumSporScreenState extends State<PremiumSporScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final result = await _service.fetch(
-      urls: widget.urls,
-      embedOnly: widget.embedOnly,
-      sectionEmbedBase: widget.sectionEmbedBase,
-      bossEmbedBase: widget.bossEmbedBase,
-    );
+    final result = widget.kind == 'mahsun'
+        ? await MahsunSource.fetch(
+            widget.urls.isNotEmpty ? widget.urls.first : '',
+            dataUrl: widget.dataUrl,
+          )
+        : await _service.fetch(
+            urls: widget.urls,
+            embedOnly: widget.embedOnly,
+            sectionEmbedBase: widget.sectionEmbedBase,
+            bossEmbedBase: widget.bossEmbedBase,
+          );
     if (!mounted) return;
     setState(() {
       _items = result;
@@ -56,6 +68,8 @@ class _PremiumSporScreenState extends State<PremiumSporScreen> {
   }
 
   void _open(PremiumItem item) {
+    // Boss / Patron / Mahsun / Premium açılışında da geçiş reklamı (sayaçlı).
+    AdService().onChannelOpened();
     Get.to(() => PremiumPlayerScreen(item: item));
   }
 
