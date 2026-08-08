@@ -127,6 +127,28 @@ class HomeScreen extends StatelessWidget {
           ), gated: true));
     }
 
+    // 3b) Zeus TV — SUNUCUSUZ (JSON API cihazda). İki bölüm: Günün Maçları
+    //     (futbol) + Canlı TV. Tek adres yeter (zeus_base).
+    final zeusBase = rc.zeusBase;
+    if (zeusBase.isNotEmpty && rc.zeusMatchesShow) {
+      list.add(_Feature(rc.zeusMatchesTitle, Icons.sports_soccer,
+          () => PremiumSporScreen(
+                title: rc.zeusMatchesTitle,
+                urls: [zeusBase],
+                kind: 'zeus_matches',
+              ),
+          gated: true));
+    }
+    if (zeusBase.isNotEmpty && rc.zeusChannelsShow) {
+      list.add(_Feature(rc.zeusChannelsTitle, Icons.live_tv,
+          () => PremiumSporScreen(
+                title: rc.zeusChannelsTitle,
+                urls: [zeusBase],
+                kind: 'zeus_channels',
+              ),
+          gated: true));
+    }
+
     // 4) content_json (geriye-uyumlu) — ekstra m3u / resolve kaynakları.
     for (final s in ContentSource.parseList(rc.contentSourcesJson)) {
       if (s.isM3u) {
