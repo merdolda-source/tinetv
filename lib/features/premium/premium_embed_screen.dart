@@ -20,13 +20,15 @@ class PremiumEmbedScreen extends StatefulWidget {
   State<PremiumEmbedScreen> createState() => _PremiumEmbedScreenState();
 }
 
-class _PremiumEmbedScreenState extends State<PremiumEmbedScreen> {
+class _PremiumEmbedScreenState extends State<PremiumEmbedScreen>
+    with WidgetsBindingObserver {
   late final WebViewController _controller;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Canlı yayın yatay izlensin.
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -104,8 +106,44 @@ class _PremiumEmbedScreenState extends State<PremiumEmbedScreen> {
 })();
 ''';
 
+  // Uygulama arkaya atılınca yayını DURDUR (arka planda çalmasın, PiP açılmasın).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _stopMedia();
+  }
+
+  // WebView içindeki tüm video/audio'yu durdur + sustur. ASIL yayın çoğu zaman
+  // cross-origin bir IFRAME içinde; JS o iframe'in İÇİNE giremez, AMA kendi
+  // document'imizden iframe ELEMENTİNİ kaldırmak serbesttir → iframe (ve içindeki
+  // video/ses) yok olur. Boss/Patron/Taraftarium sesinin çıkışta devam etmesi
+  // bu yüzdendi; iframe'leri de kaldırınca kesin susar.
+  void _stopMedia() {
+    try {
+      _controller.runJavaScript(
+          "try{"
+          "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause();m.muted=true;m.removeAttribute('src');m.src='';if(m.load)m.load();}catch(e){}});"
+          "document.querySelectorAll('iframe').forEach(function(f){try{f.src='about:blank';if(f.parentNode)f.parentNode.removeChild(f);}catch(e){}});"
+          "}catch(e){}");
+    } catch (_) {}
+  }
+
+  // Ekrandan çıkış: webview HÂLÂ CANLIYKEN medyayı durdur, kısa bekle, sonra kapat.
+  // (dispose anında çalıştırmak iOS'ta çok geç kalıyordu.)
+  Future<void> _leave() async {
+    _stopMedia();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // Ekrandan çıkınca yayın kesin dursun: medyayı durdur + boş sayfa yükle.
+    _stopMedia();
+    try {
+      _controller.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -126,7 +164,7 @@ class _PremiumEmbedScreenState extends State<PremiumEmbedScreen> {
               left: 4,
               child: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).maybePop(),
+                onPressed: _leave,
               ),
             ),
           ],
