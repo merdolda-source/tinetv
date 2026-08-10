@@ -47,6 +47,34 @@ class _SiteWebviewScreenState extends State<SiteWebviewScreen> {
     return NavigationDecision.navigate;
   }
 
+  // Medyayı durdur + iframe'leri DOM'dan kaldır (cross-origin ses çıkışta sürmesin).
+  void _stopMedia() {
+    try {
+      _webController.runJavaScript(
+          "try{"
+          "document.querySelectorAll('video,audio').forEach(function(m){try{m.pause();m.muted=true;m.removeAttribute('src');m.src='';if(m.load)m.load();}catch(e){}});"
+          "document.querySelectorAll('iframe').forEach(function(f){try{f.src='about:blank';if(f.parentNode)f.parentNode.removeChild(f);}catch(e){}});"
+          "}catch(e){}");
+    } catch (_) {}
+  }
+
+  // Çıkışta: webview canlıyken durdur, kısa bekle, sonra kapat.
+  Future<void> _leave() async {
+    _stopMedia();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
+  @override
+  void dispose() {
+    _stopMedia();
+    try {
+      _webController.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +86,12 @@ class _SiteWebviewScreenState extends State<SiteWebviewScreen> {
           style: const TextStyle(color: Colors.white),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        // Varsayılan geri butonu yerine: önce medyayı durdur, sonra kapat.
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: _leave,
+        ),
       ),
       body: Stack(
         children: [
